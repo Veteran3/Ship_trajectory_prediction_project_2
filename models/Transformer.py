@@ -87,7 +87,7 @@ class Model(nn.Module):
             projection=nn.Linear(args.d_model, self.c_out, bias=True)
         )
     
-    def forward(self, x_enc, x_dec=None, enc_self_mask=None, dec_self_mask=None, dec_enc_mask=None):
+    def forward(self, x_enc, x_dec=None, enc_self_mask=None, dec_self_mask=None, dec_enc_mask=None, mask_x=None, mask_y=None):
         """
         前向传播
         
@@ -103,65 +103,146 @@ class Model(nn.Module):
         """
         batch_size = x_enc.size(0)
         device = x_enc.device
-        
-        # print('self.input_time_steps', self.input_time_steps)
+        ###########################################################
+        # 构造时间步的 key padding mask
+        time_valid_enc = mask_x.any(dim=2)  # [B, T_in]
+        enc_kpm = ~time_valid_enc
+
+        time_valid_dec = mask_y.any(dim=2)
+        dec_kpm = ~time_valid_dec
+        ###########################################################
 
         # 1. Reshape输入: [B, T, N, D] -> [B, T, N*D]
         x_enc_reshaped = x_enc.view(batch_size, self.input_time_steps, -1)
         
         # 2. 编码器
         enc_out = self.enc_embedding(x_enc_reshaped)
-        enc_out, attns = self.encoder(enc_out, attn_mask=enc_self_mask)
+        enc_out, attns = self.encoder(enc_out, attn_mask=enc_self_mask, src_key_padding_mask=enc_kpm)
         
         # 3. 解码器
         if x_dec is not None:
             # 训练模式：使用teacher forcing
             x_dec_reshaped = x_dec.view(batch_size, self.output_time_steps, -1)
             dec_out = self.dec_embedding(x_dec_reshaped)
-            dec_out = self.decoder(dec_out, enc_out, x_mask=dec_self_mask, cross_mask=dec_enc_mask)
+            dec_out = self.decoder(
+                dec_out, enc_out,
+                x_mask=dec_self_mask, cross_mask=dec_enc_mask,
+                tgt_key_padding_mask=dec_kpm,          # ← 新增
+                memory_key_padding_mask=enc_kpm        # ← 新增
+            )
         else:
             # 推理模式：自回归生成
-            dec_out = self.autoregressive_decode(enc_out, batch_size, device)
+            x_last_for_dec = x_enc[:, -1, :, :2].reshape(batch_size, 1, -1)  # [B,1,N*D_dec] == [B,1,dec_in]
+
+            dec_out = self.autoregressive_decode(
+                enc_out=enc_out,
+                mask_x=mask_x,                   # 构造 memory_key_padding_mask
+                start_token=x_last_for_dec,      # 与训练 teacher forcing 对齐
+                device=x_enc.device
+            )
         
         # 4. Reshape输出: [B, T_out, N*D] -> [B, T_out, N, D]
         dec_out = dec_out.view(batch_size, self.output_time_steps, self.num_ships, 2)
-        
+        dec_out = dec_out * mask_y.unsqueeze(-1).float()
+
+        # print('dec_out:', dec_out[0, 0, -1, :2])
+
         return dec_out
     
-    def autoregressive_decode(self, enc_out, batch_size, device):
+    # def autoregressive_decode(self, enc_out, batch_size, device):
+    #     """
+    #     自回归解码（推理模式）
+        
+    #     Args:
+    #         enc_out: [B, T_in, d_model]
+    #         batch_size: batch size
+    #         device: device
+        
+    #     Returns:
+    #         [B, T_out, c_out]
+    #     """
+    #     # 初始化解码器输入（用零向量）
+    #     dec_input = torch.zeros(batch_size, 1, self.dec_in, device=device)
+    #     outputs = []
+        
+    #     for t in range(self.output_time_steps):
+    #         # 嵌入
+    #         dec_embedded = self.dec_embedding(dec_input)
+            
+    #         # 解码
+    #         dec_out = self.decoder(dec_embedded, enc_out, x_mask=None, cross_mask=None)
+            
+    #         # 取最后一个时间步
+    #         pred = dec_out[:, -1:, :]  # [B, 1, c_out]
+    #         outputs.append(pred)
+            
+    #         # 更新解码器输入
+    #         dec_input = torch.cat([dec_input, pred], dim=1)
+        
+    #     # 拼接所有输出
+    #     output = torch.cat(outputs, dim=1)  # [B, T_out, c_out]
+        
+    #     return output
+
+
+    def autoregressive_decode(self, enc_out, mask_x, start_token, device):
         """
         自回归解码（推理模式）
-        
         Args:
-            enc_out: [B, T_in, d_model]
-            batch_size: batch size
-            device: device
-        
+            enc_out:   [B, T_in, d_model]  编码器输出
+            mask_x:    [B, T_in, N]        encoder 的有效掩码（构造 memory_kpm）
+            start_token: [B, 1, dec_in]    第一个解码步的输入（建议用 x_enc 的最后一帧展平到 dec_in）
+            device:    torch.device
         Returns:
-            [B, T_out, c_out]
+            [B, T_out, c_out]  （要求 c_out == dec_in）
         """
-        # 初始化解码器输入（用零向量）
-        dec_input = torch.zeros(batch_size, 1, self.dec_in, device=device)
-        outputs = []
-        
-        for t in range(self.output_time_steps):
-            # 嵌入
-            dec_embedded = self.dec_embedding(dec_input)
-            
-            # 解码
-            dec_out = self.decoder(dec_embedded, enc_out, x_mask=None, cross_mask=None)
-            
-            # 取最后一个时间步
-            pred = dec_out[:, -1:, :]  # [B, 1, c_out]
-            outputs.append(pred)
-            
-            # 更新解码器输入
-            dec_input = torch.cat([dec_input, pred], dim=1)
-        
-        # 拼接所有输出
-        output = torch.cat(outputs, dim=1)  # [B, T_out, c_out]
-        
-        return output
+        B = enc_out.size(0)
+        T_out = self.output_time_steps
 
+        # 1) encoder 侧的 key padding mask（屏蔽空时间步）
+        enc_kpm = ~mask_x.any(dim=2)  # [B, T_in]  True=屏蔽
+
+        # 2) 准备因果 mask（上三角 True=不允许注意）
+        causal = torch.triu(
+            torch.ones(T_out, T_out, dtype=torch.bool, device=device),
+            diagonal=1
+        )
+
+        # 3) 初始化解码器输入（用与训练一致的起始 token）
+        # start_token 形状必须是 [B,1, self.dec_in]
+        dec_input = start_token.to(device)  # [B, 1, dec_in]
+
+        outputs = []
+        for t in range(T_out):
+            # 嵌入
+            dec_emb = self.dec_embedding(dec_input)                # [B, L, d_model]
+
+            # 目标侧 padding mask：当前步内都有效 → 全 False
+            dec_kpm = torch.zeros(B, dec_emb.size(1), dtype=torch.bool, device=device)
+
+            # 因果 mask 切片到当前长度 L
+            L = dec_emb.size(1)
+            dec_self_mask = causal[:L, :L]                         # [L,L]
+
+            # 解码（带上两种 padding mask）
+            dec_out = self.decoder(
+                x=dec_emb,
+                cross=enc_out,
+                x_mask=dec_self_mask,              # 自注意力因果
+                cross_mask=None,
+                tgt_key_padding_mask=dec_kpm,      # 目标侧 KPM（当前 L 内无 padding）
+                memory_key_padding_mask=enc_kpm    # 编码侧 KPM（屏蔽空时间步）
+            )                                       # [B, L, c_out]  (你的 Decoder 内部已做 projection)
+
+            # 取最后一个时间步的输出
+            step = dec_out[:, -1:, :]              # [B, 1, c_out]
+
+            outputs.append(step)
+
+            # 回填到下一步输入（要求 c_out == dec_in）
+            dec_input = torch.cat([dec_input, step], dim=1)   # [B, L+1, dec_in]
+
+        out = torch.cat(outputs, dim=1)                        # [B, T_out, c_out]
+        return out
 
 # ==================== 示例使用 ====================

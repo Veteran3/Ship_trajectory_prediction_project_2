@@ -117,7 +117,7 @@ class Exp_Forecasting(Exp_Basic):
                 batch_y = batch_y[..., :2].float().to(self.device)  # [B, T_out, N, 2]
                 
                 # 模型推理（不使用teacher forcing）
-                outputs = self.model(batch_x, x_dec=None)  # [B, T_out, N, 2]
+                outputs = self.model(batch_x, x_dec=None, mask_x=mask_x.to(self.device), mask_y=mask_y.to(self.device))  # [B, T_out, N, 2]
                 
                 # 计算损失
                 loss = criterion(outputs[mask_y], batch_y[mask_y])
@@ -192,7 +192,7 @@ class Exp_Forecasting(Exp_Basic):
                         loss = criterion(outputs, batch_y)
                         train_loss.append(loss.item())
                 else:
-                    outputs = self.model(batch_x, x_dec=batch_y)
+                    outputs = self.model(batch_x, x_dec=batch_y, mask_x=mask_x.to(self.device), mask_y=mask_y.to(self.device))
 
                     # # 打印 outputs 每个维度的 max / min / mean
                     # t = outputs.detach().cpu()
@@ -261,7 +261,7 @@ class Exp_Forecasting(Exp_Basic):
             setting: 实验设置名称
             test: 0-验证集, 1-测试集
         """
-        test_data, test_loader = self._get_data(flag='train')
+        test_data, test_loader = self._get_data(flag='test')
         
         if test:
             print('loading model')
@@ -280,7 +280,7 @@ class Exp_Forecasting(Exp_Basic):
                 batch_y = batch_y[..., :2].float().to(self.device)  # [B, T_out, N, 2]
                 
                 # 模型推理
-                outputs = self.model(batch_x, x_dec=None)  # [B, T_out, N, 2]
+                outputs = self.model(batch_x, x_dec=None, mask_x=mask_x.to(self.device), mask_y=mask_y.to(self.device))  # [B, T_out, N, 2]
                 
                 # 收集预测和真实值
                 outputs = outputs.detach().cpu().numpy()

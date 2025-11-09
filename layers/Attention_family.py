@@ -16,7 +16,7 @@ class FullAttention(nn.Module):
         self.output_attention = output_attention
         self.dropout = nn.Dropout(attention_dropout)
     
-    def forward(self, queries, keys, values, attn_mask=None, tau=None, delta=None):
+    def forward(self, queries, keys, values, attn_mask=None, tau=None, delta=None, src_key_padding_mask=None):
         """
         Args:
             queries: [B, L_q, H, D]
@@ -37,6 +37,11 @@ class FullAttention(nn.Module):
         # 计算注意力分数
         scores = torch.einsum("blhd,bshd->bhls", queries, keys)
         
+        if src_key_padding_mask is not None:
+            # src_key_padding_mask: [B, T_k]  True=需要屏蔽
+            mask = src_key_padding_mask[:, None, None, :]       # [B,1,1,T_k]
+            scores = scores.masked_fill(mask, float('-inf'))
+
         # 应用mask
         if self.mask_flag:
             if attn_mask is None:
@@ -78,8 +83,8 @@ class AttentionLayer(nn.Module):
         self.value_projection = nn.Linear(d_model, d_values * n_heads)
         self.out_projection = nn.Linear(d_values * n_heads, d_model)
         self.n_heads = n_heads
-    
-    def forward(self, queries, keys, values, attn_mask=None, tau=None, delta=None):
+
+    def forward(self, queries, keys, values, attn_mask=None, tau=None, delta=None, src_key_padding_mask=None):
         """
         Args:
             queries: [B, L_q, d_model]
@@ -102,7 +107,7 @@ class AttentionLayer(nn.Module):
         values = self.value_projection(values).view(B, L_v, H, -1)
         
         # 注意力计算
-        out, attn = self.inner_attention(queries, keys, values, attn_mask, tau=tau, delta=delta)
+        out, attn = self.inner_attention(queries, keys, values, attn_mask, tau=tau, delta=delta, src_key_padding_mask=src_key_padding_mask)
         
         # 合并多头
         out = out.contiguous().view(B, L_q, -1)
