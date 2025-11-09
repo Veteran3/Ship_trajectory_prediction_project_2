@@ -261,7 +261,7 @@ class Exp_Forecasting(Exp_Basic):
             setting: 实验设置名称
             test: 0-验证集, 1-测试集
         """
-        test_data, test_loader = self._get_data(flag='test')
+        test_data, test_loader = self._get_data(flag='train')
         
         if test:
             print('loading model')
@@ -289,12 +289,12 @@ class Exp_Forecasting(Exp_Basic):
                 preds.append(outputs)
                 trues.append(batch_y)
                 
-                # 可视化部分结果
-                if i % 20 == 0:
-                    input_data = batch_x.detach().cpu().numpy()
-                    gt = np.concatenate((input_data[0, :, :, :], batch_y[0, :, :, :]), axis=0)
-                    pd = np.concatenate((input_data[0, :, :, :], outputs[0, :, :, :]), axis=0)
-                    visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
+                # # 可视化部分结果
+                # if i % 20 == 0:
+                #     input_data = batch_x.detach().cpu().numpy()
+                #     gt = np.concatenate((input_data[0, :, :, :], batch_y[0, :, :, :]), axis=0)
+                #     pd = np.concatenate((input_data[0, :, :, :], outputs[0, :, :, :]), axis=0)
+                #     visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
         
         # 拼接所有批次
         preds = np.concatenate(preds, axis=0)

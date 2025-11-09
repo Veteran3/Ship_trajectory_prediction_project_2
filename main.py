@@ -28,7 +28,7 @@ def get_args():
     # ==================== 基本配置 ====================
     parser.add_argument('--task_name', type=str, default='ship_trajectory_forecast',
                         help='task name')
-    parser.add_argument('--is_training', type=int, default=1,
+    parser.add_argument('--is_training', type=int, default=0,
                         help='status: 1 for training, 0 for testing')
     parser.add_argument('--model_id', type=str, default='ship_traj',
                         help='model id')
