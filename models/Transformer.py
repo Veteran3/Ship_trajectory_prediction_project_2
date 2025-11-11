@@ -7,6 +7,50 @@
 注意力层作为参数传入，完全解耦
 """
 
+
+"""
+船舶交通流多船轨迹预测 Transformer 模型 (Encoder-Decoder)
+
+=======================================================================
+核心设计 (基于您的项目  和代码)：
+=======================================================================
+
+1.  **架构: [B, T, N, D] -> [B, T, N*D] (展平策略)**
+    * 本模型将 N 艘船及其 D 个特征在 *同一时刻* 展平 (Flatten) 为一个单一的特征向量 (N*D)。
+    * 输入形状: `[B, T_in, N, D_in]` -> `[B, T_in, N*D_in]`。
+    * 输出形状: `[B, T_out, N, 2]`  <- `[B, T_out, N*2]`。
+
+2.  **注意力机制: 纯时间 (Temporal) 注意力**
+    * 由于 N 维度被展平，Transformer 的自注意力 (Self-Attention) *只* 在 `T` (时间) 维度上运作。
+    * 它学习的是 "包含 N 艘船的整个系统" 随时间的演化规律。
+    * 它 *不会* 显式地学习 T1 时刻船 A 和船 B 之间的空间交互。
+
+3.  **双重掩码 (Dual Masking) 策略 (关键!)**
+    * 为了解决 "注意力污染"  和 "0 值干扰训练" ，本模型使用了两种*不同*的掩码机制：
+
+    * **掩码A: "时间步掩码" (Temporal Padding Mask)**
+        * **问题**: 某些时间帧 (Time Frame) 可能一艘船都没有 (空帧)，是无效的。
+        * **形状**: `[B, T]`
+        * **实现**: `mask_x.any(dim=2)`。
+        * **作用**: 在 `Encoder` 和 `Decoder` 中作为 `key_padding_mask` (KPM) 传入。
+        * **目的**: 告诉注意力机制 "忽略这些完全无效的时间步"。
+
+    * **掩码B: "实体掩码" (Entity Padding Mask)**
+        * **问题**: 船舶数 < N (例如 < 17)，使用 0 填充 (0-Padding) 的 "幽灵船"。
+        * **形状**: `[B, T, N]`
+        * **实现**: *不在* 注意力层，而是在训练的其他部分。
+        * **作用**:
+            1.  **归一化**: 预处理时仅在 `mask==1` 上统计均值/方差。
+            2.  **损失计算**: `loss = F.mse_loss(pred[mask], y[mask])` [cite: 35]。
+            3.  **模型输出**: `forward` 函数最后一行 `dec_out * mask_y.unsqueeze(-1)`，将幽灵船的预测强制清零。
+
+4.  **解码策略: Teacher Forcing vs. 自回归 (Autoregressive)**
+    * `forward` 函数通过 `x_dec` 是否为 `None` 来区分训练和推理。
+    * **训练 (Teacher Forcing)**: 使用 `x_dec` (真实目标)，导致 "分布偏移" (Exposure Bias)，可能使 MSE Loss 虚低，但推理效果差 (如您展示的轨迹图)。
+    * **推理 (Autoregressive)**: `autoregressive_decode` 函数实现自回归，将上一步的预测作为下一步的输入，这与真实推理一致。
+
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -90,16 +134,18 @@ class Model(nn.Module):
     def forward(self, x_enc, x_dec=None, enc_self_mask=None, dec_self_mask=None, dec_enc_mask=None, mask_x=None, mask_y=None):
         """
         前向传播
-        
+
         Args:
-            x_enc: [B, T_in, N, D] - 编码器输入（历史轨迹）
-            x_dec: [B, T_out, N, D] - 解码器输入（目标轨迹，训练时使用）
-            enc_self_mask: 编码器自注意力mask
-            dec_self_mask: 解码器自注意力mask（causal mask）
-            dec_enc_mask: 解码器-编码器交叉注意力mask
-        
+            x_enc: [B, T_in, N, D_in] - 编码器输入 (历史轨迹)
+            x_dec: [B, T_out, N, 2]  - 解码器输入 (目标轨迹，训练时使用 Teacher Forcing)
+            enc_self_mask: 编码器自注意力mask (通常为None)
+            dec_self_mask: 解码器自注意力mask (因果 mask, 在 Decoder 内部自动生成或外部传入)
+            dec_enc_mask: 交叉注意力mask (通常为None)
+            mask_x: [B, T_in, N] - "实体掩码B" (历史)。True=有效船只。
+            mask_y: [B, T_out, N] - "实体掩码B" (未来)。True=有效船只。
+
         Returns:
-            [B, T_out, N, D] - 预测的未来轨迹
+            [B, T_out, N, 2] - 预测的未来轨迹
         """
         batch_size = x_enc.size(0)
         device = x_enc.device
@@ -187,14 +233,18 @@ class Model(nn.Module):
 
     def autoregressive_decode(self, enc_out, mask_x, start_token, device):
         """
-        自回归解码（推理模式）
+        自回归解码（推理模式）[cite: 35]
+        在 T_out 步上循环，每次将上一步的输出作为下一步的输入。
+        这模拟了真实推理场景，用于解决 Teacher Forcing 导致的 "分布偏移" 问题。
+
         Args:
-            enc_out:   [B, T_in, d_model]  编码器输出
-            mask_x:    [B, T_in, N]        encoder 的有效掩码（构造 memory_kpm）
-            start_token: [B, 1, dec_in]    第一个解码步的输入（建议用 x_enc 的最后一帧展平到 dec_in）
-            device:    torch.device
+            enc_out:     [B, T_in, d_model]  编码器输出 (Memory)
+            mask_x:      [B, T_in, N]        "实体掩码B"，用于构造 "掩码A"
+            start_token: [B, 1, dec_in]    第一个解码步的输入 (即 x_enc 的最后一帧)
+            device:      torch.device
+
         Returns:
-            [B, T_out, c_out]  （要求 c_out == dec_in）
+            [B, T_out, c_out]  (c_out == dec_in == N*2)
         """
         B = enc_out.size(0)
         T_out = self.output_time_steps
