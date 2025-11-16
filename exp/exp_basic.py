@@ -1,13 +1,16 @@
 import os
 import torch
-from models import Transformer
+# from models import Transformer_V1_0, Transformer_V1_1
 
+from models import  V1_0_Transformer, V1_1_Transformer, V2_0_ASTGNN
 
 class Exp_Basic(object):
     def __init__(self, args):
         self.args = args
         self.model_dict = {
-            'Transformer': Transformer,
+            # 'Transformer_V1': Transformer_V1_0,
+            'Transformer_V1_1': V1_1_Transformer,
+            'ASTGNN_v2_0': V2_0_ASTGNN,
         }
        
 

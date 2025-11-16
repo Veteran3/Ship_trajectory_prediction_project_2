@@ -83,19 +83,7 @@ class Exp_Forecasting(Exp_Basic):
         """选择优化器"""
         model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
         return model_optim
-    
-    def _select_criterion(self):
-        """选择损失函数"""
-        if self.args.loss == 'mse':
-            criterion = nn.MSELoss()
-        elif self.args.loss == 'mae':
-            criterion = nn.L1Loss()
-        elif self.args.loss == 'huber':
-            criterion = nn.SmoothL1Loss()
-        else:
-            criterion = nn.MSELoss()
-        return criterion
-    
+
     def vali(self, vali_data, vali_loader, criterion):
         """
         验证模型
@@ -148,7 +136,9 @@ class Exp_Forecasting(Exp_Basic):
         early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
         
         model_optim = self._select_optimizer()
-        criterion = self._select_criterion()
+        
+
+        criterion = self.model.get_loss(self.args.loss)
         
         if self.args.use_amp:
             scaler = torch.cuda.amp.GradScaler()
@@ -288,13 +278,6 @@ class Exp_Forecasting(Exp_Basic):
                 
                 preds.append(outputs)
                 trues.append(batch_y)
-                
-                # # 可视化部分结果
-                # if i % 20 == 0:
-                #     input_data = batch_x.detach().cpu().numpy()
-                #     gt = np.concatenate((input_data[0, :, :, :], batch_y[0, :, :, :]), axis=0)
-                #     pd = np.concatenate((input_data[0, :, :, :], outputs[0, :, :, :]), axis=0)
-                #     visual(gt, pd, os.path.join(folder_path, str(i) + '.pdf'))
         
         # 拼接所有批次
         preds = np.concatenate(preds, axis=0)

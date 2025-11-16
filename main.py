@@ -32,7 +32,7 @@ def get_args():
                         help='status: 1 for training, 0 for testing')
     parser.add_argument('--model_id', type=str, default='ship_traj',
                         help='model id')
-    parser.add_argument('--model', type=str, default='Transformer',
+    parser.add_argument('--model', type=str, default='ASTGNN_v2_0',
                         help='model name')
     
     # ==================== 数据配置 ====================

@@ -60,6 +60,7 @@ from layers.Transformer_Enc_Dec import Encoder, EncoderLayer, Decoder, DecoderLa
 from layers.Attention_family import FullAttention, AttentionLayer
 from layers.Embed import DataEmbedding
 
+from utils.get_loss_function import get_loss_function
 
 # ==================== 完整模型 ====================
 
@@ -167,15 +168,91 @@ class Model(nn.Module):
         
         # 3. 解码器
         if x_dec is not None:
-            # 训练模式：使用teacher forcing
-            x_dec_reshaped = x_dec.view(batch_size, self.output_time_steps, -1)
-            dec_out = self.dec_embedding(x_dec_reshaped)
-            dec_out = self.decoder(
-                dec_out, enc_out,
-                x_mask=dec_self_mask, cross_mask=dec_enc_mask,
-                tgt_key_padding_mask=dec_kpm,          # ← 新增
-                memory_key_padding_mask=enc_kpm        # ← 新增
-            )
+            # =================================================================
+            # 训练模式 (Scheduled Sampling)
+            # 目标：解决 "暴露偏差" (Exposure Bias)
+            # 策略：在训练中，以 p 的概率 使用 "真实值" (Teacher Forcing)，
+            #      以 (1-p) 的概率 使用 "模型上一步的预测" (Autoregressive)，
+            #      来强迫模型学会从自己的错误中纠正。
+            # =================================================================
+            
+            # 1. 展平目标真值 (用于采样)
+            # [B, T_out, N, 2] -> [B, T_out, N*2]
+            truth_targets_flat = x_dec.view(
+                batch_size, self.output_time_steps, -1)  #
+
+            # 2. 构造自回归的 "起始 token" (同推理模式)
+            # [B, 1, N*2]
+            dec_input = x_enc[:, -1, :, :2].reshape(
+                batch_size, 1, -1)  #
+
+            # 3. 准备解码器所需的固定掩码
+            # "掩码A: 时间步掩码" (用于 Cross-Attention)
+            enc_kpm = ~mask_x.any(dim=2)  # [B, T_in]
+            
+            # "因果掩码" (用于 Self-Attention)
+            causal = torch.triu(
+                torch.ones(self.output_time_steps, self.output_time_steps, 
+                           dtype=torch.bool, device=device),
+                diagonal=1
+            ) #
+
+            outputs = [] # 收集 T_out 步的输出
+
+            # --- 串行循环 T_out 步 ---
+            for t in range(self.output_time_steps):
+                # L = t + 1 (当前已生成序列的长度)
+                L = dec_input.size(1)
+
+                # 嵌入当前已生成的序列: [B, L, dec_in] -> [B, L, d_model]
+                dec_emb = self.dec_embedding(dec_input) #
+
+                # 掩码A (目标侧): 自回归序列内部无 padding
+                dec_kpm_step = torch.zeros(
+                    batch_size, L, dtype=torch.bool, device=device) #
+
+                # 因果掩码: 切片到当前长度 L
+                dec_self_mask_step = causal[:L, :L] #
+
+                # 解码 (带上所有 masks)
+                dec_out_seq = self.decoder(
+                    x=dec_emb,                      # [B, L, d_model]
+                    cross=enc_out,                  # [B, T_in, d_model]
+                    x_mask=dec_self_mask_step,      # [L, L]
+                    cross_mask=dec_enc_mask,        # None
+                    tgt_key_padding_mask=dec_kpm_step, # [B, L]
+                    memory_key_padding_mask=enc_kpm # [B, T_in]
+                )  # # 输出 [B, L, c_out]
+
+                # 只取解码器输出序列的 *最后一个* 时间步
+                last_pred_step = dec_out_seq[:, -1:, :]  # [B, 1, c_out]
+
+                # 收集该步的预测 (用于计算最终 Loss)
+                outputs.append(last_pred_step)
+
+                # --- 预定采样 (Scheduled Sampling) 逻辑 ---
+                # 如果不是最后一步，我们
+                if t < self.output_time_steps - 1:
+                    
+                    # 决定是使用 "真值" 还是 "预测值" 作为下一步的输入
+                    # self.sampling_probability 即为您提到的概率 p
+                    use_truth = torch.rand(1) < 0.7
+
+                    if use_truth:
+                        # 策略 1 (p 的概率): 使用 "真实值"
+                        # 我们需要 't' 时刻的真实值
+                        next_input_token = truth_targets_flat[:, t:t+1, :]
+                    else:
+                        # 策略 2 (1-p 的概率): 使用 "上一步的预测值"
+                        next_input_token = last_pred_step.detach() # .detach() 防止梯度反传两次
+
+                    # 将选中的 token 拼接到输入序列，用于下一次循环
+                    dec_input = torch.cat([dec_input, next_input_token], dim=1) #
+                
+            # 循环结束后，将 T_out 个 [B, 1, c_out] 拼接起来
+            dec_out = torch.cat(outputs, dim=1)  # [B, T_out, c_out]
+
+
         else:
             # 推理模式：自回归生成
             x_last_for_dec = x_enc[:, -1, :, :2].reshape(batch_size, 1, -1)  # [B,1,N*D_dec] == [B,1,dec_in]
@@ -294,5 +371,14 @@ class Model(nn.Module):
 
         out = torch.cat(outputs, dim=1)                        # [B, T_out, c_out]
         return out
+
+    def get_loss(self, loss_name):
+        """
+        获取损失函数
+        """
+        criterion = get_loss_function(loss_name)
+        return criterion
+
+
 
 # ==================== 示例使用 ====================
