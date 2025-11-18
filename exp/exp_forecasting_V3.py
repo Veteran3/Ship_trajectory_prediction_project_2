@@ -62,10 +62,11 @@ class Exp_Forecasting(Exp_Basic):
 
     def vali(self, vali_loader):
         # ... (此方法保持不变, 它不处理路径) ...
+        total_loss = []
         total_loss_absolute = []
         self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, batch_y, mask_x, mask_y, ship_count, _) in enumerate(vali_loader):
+            for i, (batch_x, batch_y, mask_x, mask_y, ship_count, _, A_social) in enumerate(vali_loader):
                 batch_x = batch_x.float().to(self.device)
                 mask_x = mask_x.to(self.device)
                 mask_y = mask_y.to(self.device)
@@ -75,7 +76,8 @@ class Exp_Forecasting(Exp_Basic):
                     x_enc=batch_x, 
                     y_truth_abs=None,
                     mask_x=mask_x, 
-                    mask_y=mask_y
+                    mask_y=mask_y,
+                    A_social_t=A_social.to(self.device)
                 ) 
                 
                 loss, loss_absolute = self.model.loss(
@@ -85,12 +87,13 @@ class Exp_Forecasting(Exp_Basic):
                     mask_y=mask_y
                 )
                 
+                total_loss.append(loss.item())
                 total_loss_absolute.append(loss_absolute.item())
         
+        total_loss = np.average(total_loss)
         total_loss_absolute = np.average(total_loss_absolute)
         self.model.train()
-        return total_loss_absolute # [更正] vali 只应返回它被监控的 loss
-
+        return total_loss, total_loss_absolute
     def train(self, setting):
         """
         训练模型
@@ -124,11 +127,8 @@ class Exp_Forecasting(Exp_Basic):
             
             self.model.train()
             epoch_time = time.time()
-
-            current_prob = get_annealed_sampling_prob(self.args, epoch)
-            self.model.sampling_prob = current_prob
             
-            for i, (batch_x, batch_y, mask_x, mask_y, ship_count, _) in enumerate(train_loader):
+            for i, (batch_x, batch_y, mask_x, mask_y, ship_count, _, A_social) in enumerate(train_loader):
                 iter_count += 1
                 model_optim.zero_grad()
 
@@ -139,8 +139,19 @@ class Exp_Forecasting(Exp_Basic):
                 
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
-                        pred_deltas = self.model(...)
-                        loss, loss_absolute = self.model.loss(...)
+                        pred_deltas = self.model(
+                            x_enc=batch_x,
+                            y_truth_abs=batch_y,
+                            mask_x=mask_x,
+                            mask_y=mask_y,
+                            A_social_t=A_social.to(self.device)
+                        )
+                        loss, loss_absolute = self.model.loss(
+                            pred_deltas=pred_deltas,
+                            y_truth_abs=batch_y,
+                            x_enc=batch_x,
+                            mask_y=mask_y
+                        )
                         
                         # [修正] 应当在混合损失上反向传播
                         back_loss = loss + 0.5 * loss_absolute # (假设 lambda=0.5)
@@ -152,7 +163,8 @@ class Exp_Forecasting(Exp_Basic):
                         x_enc=batch_x,
                         y_truth_abs=batch_y,
                         mask_x=mask_x,
-                        mask_y=mask_y
+                        mask_y=mask_y,
+                        A_social_t=A_social.to(self.device)
                     )
                     
                     loss, loss_absolute = self.model.loss(
@@ -184,10 +196,10 @@ class Exp_Forecasting(Exp_Basic):
             train_loss_absolute = np.average(train_loss_absolute)
             
             # [修正] vali_loss 现在是 absolute loss
-            vali_loss_absolute = self.vali(vali_loader)
-            test_loss_absolute = self.vali(test_loader) # (假设 test 也用 vali 逻辑)
+            vali_loss, vali_loss_absolute = self.vali(vali_loader)
+            test_loss, test_loss_absolute = self.vali(test_loader) # (假设 test 也用 vali 逻辑)
             
-            print(f"Epoch: {epoch + 1}, Steps: {train_steps} | Train Loss: {train_loss_absolute:.7f} Vali Loss: {vali_loss_absolute:.7f} Test Loss: {test_loss_absolute:.7f}")
+            print(f"Epoch: {epoch + 1}, Steps: {train_steps} | Train Loss: {train_loss:.7f}, {train_loss_absolute:.7f} Vali Loss: {vali_loss:.7f}, {vali_loss_absolute:.7f} Test Loss: {test_loss:.7f}, {test_loss_absolute:.7f}")
             
             # [修改] 早停现在使用 "run" 路径 (path)
             # early_stopping 监控的是 vali_loss_absolute
@@ -221,7 +233,7 @@ class Exp_Forecasting(Exp_Basic):
             # [修改] 检查点路径 (加载从 ./checkpoints/...)
             checkpoint_path = os.path.join(setting, 'checkpoints', 'checkpoint.pth')
             self.model.load_state_dict(torch.load(checkpoint_path))
-        
+        hists = []
         preds = []
         trues = []
         masks_list = []
@@ -230,7 +242,7 @@ class Exp_Forecasting(Exp_Basic):
         
         self.model.eval()
         with torch.no_grad():
-            for i, (batch_x, batch_y, mask_x, mask_y, ship_count, _) in enumerate(test_loader):
+            for i, (batch_x, batch_y, mask_x, mask_y, ship_count, _, A_social) in enumerate(test_loader):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y[..., :2].float().to(self.device)
                 
@@ -239,11 +251,13 @@ class Exp_Forecasting(Exp_Basic):
                     x_enc=batch_x,
                     y_truth_abs=None, # 触发推理
                     mask_x=mask_x.to(self.device),
-                    mask_y=mask_y.to(self.device)
+                    mask_y=mask_y.to(self.device),
+                    A_social_t=A_social.to(self.device)
                 )
                 
                 outputs_absolute = self.model.integrate(outputs_deltas, batch_x)
                 
+                hists.append(batch_x[..., :2].detach().cpu().numpy())
                 preds.append(outputs_absolute.detach().cpu().numpy())
                 trues.append(batch_y.detach().cpu().numpy())
                 masks_list.append(mask_y.detach().cpu().numpy())
@@ -252,14 +266,18 @@ class Exp_Forecasting(Exp_Basic):
         scaler_params = np.load(scaler_file, allow_pickle=True).item()
         mean, std = scaler_params['mean'], scaler_params['std']
 
-        # 反标准化
-        preds_invers = preds * std[:2] + mean[:2]
-        trues_invers = trues * std[:2] + mean[:2]
+
 
         # ... (拼接 preds, trues, masks 不变) ...
+        hists = np.concatenate(hists, axis=0)
         preds = np.concatenate(preds, axis=0)
         trues = np.concatenate(trues, axis=0)
         masks = np.concatenate(masks_list, axis=0).astype(bool)
+
+        # 反标准化
+        hists_invers = hists * std[:2] + mean[:2]
+        preds_invers = preds * std[:2] + mean[:2]
+        trues_invers = trues * std[:2] + mean[:2]
         
         print('test shape:', preds.shape, trues.shape, masks.shape)
         
@@ -281,11 +299,14 @@ class Exp_Forecasting(Exp_Basic):
             f.write(f'mse:{mse:.4f}, mae:{mae:.4f}, rmse:{rmse:.4f}, mape:{mape:.4f}, mspe:{mspe:.4f}\n')
         
         np.save(os.path.join(results_path, 'metrics.npy'), np.array([mae, mse, rmse, mape, mspe, ade, fde]))
+        np.save(os.path.join(results_path, 'hists.npy'), hists)
         np.save(os.path.join(results_path, 'pred.npy'), preds)
         np.save(os.path.join(results_path, 'true.npy'), trues)
         np.save(os.path.join(results_path, 'mask.npy'), masks)
+        np.save(os.path.join(results_path, 'hists_inverse.npy'), hists_invers)
         np.save(os.path.join(results_path, 'pred_inverse.npy'), preds_invers)
         np.save(os.path.join(results_path, 'true_inverse.npy'), trues_invers)
+        
         
         return
 

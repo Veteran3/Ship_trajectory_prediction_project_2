@@ -134,9 +134,6 @@ class Exp_Forecasting(Exp_Basic):
         test_data, test_loader = self._get_data(flag='test')
         
         # ... (path, time_now, early_stopping, model_optim 不变) ...
-        ckpt_path = os.path.join(setting, 'checkpoints')
-        if not os.path.exists(ckpt_path):
-            os.makedirs(ckpt_path)
         path = os.path.join(self.args.checkpoints, setting)
         if not os.path.exists(path):
             os.makedirs(path)

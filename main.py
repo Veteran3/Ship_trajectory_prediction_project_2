@@ -33,20 +33,7 @@ def get_args():
 
 ### 关键改动:
 
-1.  **混合损失 (Hybrid Loss):**
-    反向传播的 Loss 不再是 `loss_delta`，而是 `back_loss`。
-    $$ L_{\mathrm{total}} = L_{\delta} + \lambda \cdot L_{\mathrm{abs}} $$
-    * `$\lambda$` (lambda) 在 `train()` 中硬编码为 `0.5`。
-    * `$L_{\delta}$` (增量损失) 负责优化局部稳定性。
-    * `$L_{\mathrm{abs}}$` (绝对损失) 负责惩罚全局的 "累积误差" (漂移)。
-
-2.  **固定采样 (Fixed Sampling):**
-    * 根据之前的实验，"退火" 策略效果不佳。
-    * 本次运行在 `model.sampling_prob` 中使用固定的 `p = 0.7`。
-
-### 预期结果:
-* `Vali Loss` (绝对) 应该会比 V3 (100% Teacher Forcing) 更高。
-* **但是**，`test()` 中生成的轨迹图 (尤其是转弯的) 应该会**显著**减少 "跑飞" 现象。
+1. 社会影响力，使用mask掩盖幽灵船，构建更加干净的多船相互影响图。
 """
 
     # ==================== 基本配置 ====================
@@ -56,7 +43,7 @@ def get_args():
                         help='status: 1 for training, 0 for testing')
     parser.add_argument('--model_id', type=str, default='ship_traj',
                         help='model id')
-    parser.add_argument('--model', type=str, default='V2_2_ASTGNN',
+    parser.add_argument('--model', type=str, default='V2_2_1_ASTGNN',
                         help='model name')
     
     # ==================== 数据配置 ====================
@@ -117,7 +104,7 @@ def get_args():
     parser.add_argument('--loss', type=str, default='mse',
                         choices=['mse', 'mae', 'huber'],
                         help='loss function')
-    parser.add_argument('--train_epochs', type=int, default=1,
+    parser.add_argument('--train_epochs', type=int, default=100,
                         help='number of training epochs')
     parser.add_argument('--patience', type=int, default=10,
                         help='early stopping patience')

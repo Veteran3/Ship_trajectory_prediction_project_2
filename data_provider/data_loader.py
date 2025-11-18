@@ -54,6 +54,7 @@ class ShipTrajectoryDataset(Dataset):
         self.scale = scale
         self.scale_type = scale_type
         self.predict_position_only = predict_position_only
+        self.social_sigma = 1.0  # 社交图中的速度差异标准差参数
         
         # 序列长度
         if size is None:
@@ -278,15 +279,85 @@ class ShipTrajectoryDataset(Dataset):
         seq_y_mask = self.mask_y[index]  # [T_out, N]
         ship_count = self.ship_counts[index]  # scalar
         global_id = self.global_ids[index]  # [N]
+
+        # 计算 social matrix 
+        A_social_enc = self._build_social_graph(seq_x)  # [T_in, N, N]
+        # A_social_dec = self._build_social_graph(seq_y)
+
         
         # 如果只预测经纬度，可以在这里标记
         # 但为了保持数据格式一致，我们仍然返回完整的4个特征
         # 在计算损失时再决定使用哪些特征
         
-        return seq_x, seq_y, seq_x_mask, seq_y_mask, ship_count, global_id
+        return seq_x, seq_y, seq_x_mask, seq_y_mask, ship_count, global_id, A_social_enc
     
     def __len__(self):
         return len(self.data_x)
+
+    def _build_social_graph(self, x_data):
+        """
+        构建社交图（基于船舶之间的距离）
+        这里可以实现基于距离的邻接矩阵构建
+        """
+        """
+        根据 "社会力" 公式 (2) 构建动态邻接矩阵。
+        
+        Args:
+            x_data (np.ndarray): 轨迹数据。Shape: [T_seq, N, D_in]
+        
+        Returns:
+            np.ndarray: A_social。Shape: [T_seq, N, N]
+        """
+        T_seq, N, D_in = x_data.shape
+        pos_data = x_data[:, :, :2]
+        speed_data = x_data[:, :, 2]
+        heading_data = x_data[:, :, 3]
+
+        # 1. 计算速度向量(v_x, v_y)
+        heading_rad = np.deg2rad(heading_data)
+        v_x = speed_data * np.sin(heading_rad)
+        v_y = speed_data * np.cos(heading_rad)
+        vel_vectors = np.stack((v_x, v_y), axis=-1)  # [T_seq, N, 2]
+
+        # 准备广播
+        # [T, N, 1, 2]
+        pos_i = np.expand_dims(pos_data, axis=2)
+        vel_i = np.expand_dims(vel_vectors, axis=2)
+        # [T, 1, N, 2]
+        pos_j = np.expand_dims(pos_data, axis=1)
+        vel_j = np.expand_dims(vel_vectors, axis=1)
+
+        # 2. 计算 ||pos_i - pos_j|| （位置距离）
+        # [T, N, N, 2] -> [T, N, N]
+        # (注意: 这是 (lon, lat) 上的欧几里得距离, 
+        #  对于小范围是合理的近似)
+        dist_matrix = np.linalg.norm(pos_i - pos_j, axis=-1) + 1e-8  # 防止除零
+
+        # 3. 计算 ||v_i - v_j||^2 (速度差异)
+        # [T, N, N, 2] -> [T, N, N]
+        vel_diff_sq = np.sum((vel_i - vel_j), axis=-1)
+
+        # 4. 计算 A_social
+        # a, 计算指数项
+        # exp(- ||v_i - v_j||^2 / (2*sigma^2))
+        vel_term = np.exp(- vel_diff_sq / (2 * (self.social_sigma ** 2)))  # sigma=1.0 可调
+
+        # b, 计算 距离项
+        dist_term = 1.0 / (dist_matrix + 1e-9)
+
+        # c, .构建 A_social
+        A_social = vel_term * dist_term
+
+        # d. 处理对角线(i=j)
+        diag_idx = np.arange(N)
+        A_social[:, diag_idx, diag_idx] = 0.0
+
+        return A_social # [T_seq, N, N]
+
+
+
+
+
 
 
 def ship_collate_fn(batch):
