@@ -3,9 +3,8 @@ import os
 import torch
 import random
 import numpy as np
-from exp.exp_forecasting_V3 import Exp_Forecasting
+from exp.exp_forecasting_V2 import Exp_Forecasting
 import time
-import json
 
 def set_seed(seed):
     """
@@ -26,33 +25,10 @@ def get_args():
     """
     parser = argparse.ArgumentParser(description='Ship Trajectory Prediction with Transformer')
     
-    experiment_desc = """
-## 实验目的：V4 - 混合损失 + 固定采样
-
-本次运行测试 **V4 策略**，旨在解决 V3 策略中 "预测增量" 导致的 "轨迹漂移" (无法转弯) 问题。
-
-### 关键改动:
-
-1.  **混合损失 (Hybrid Loss):**
-    反向传播的 Loss 不再是 `loss_delta`，而是 `back_loss`。
-    $$ L_{\mathrm{total}} = L_{\delta} + \lambda \cdot L_{\mathrm{abs}} $$
-    * `$\lambda$` (lambda) 在 `train()` 中硬编码为 `0.5`。
-    * `$L_{\delta}$` (增量损失) 负责优化局部稳定性。
-    * `$L_{\mathrm{abs}}$` (绝对损失) 负责惩罚全局的 "累积误差" (漂移)。
-
-2.  **固定采样 (Fixed Sampling):**
-    * 根据之前的实验，"退火" 策略效果不佳。
-    * 本次运行在 `model.sampling_prob` 中使用固定的 `p = 0.7`。
-
-### 预期结果:
-* `Vali Loss` (绝对) 应该会比 V3 (100% Teacher Forcing) 更高。
-* **但是**，`test()` 中生成的轨迹图 (尤其是转弯的) 应该会**显著**减少 "跑飞" 现象。
-"""
-
     # ==================== 基本配置 ====================
     parser.add_argument('--task_name', type=str, default='ship_trajectory_forecast',
                         help='task name')
-    parser.add_argument('--is_training', type=int, default=1,
+    parser.add_argument('--is_training', type=int, default=0,
                         help='status: 1 for training, 0 for testing')
     parser.add_argument('--model_id', type=str, default='ship_traj',
                         help='model id')
@@ -97,7 +73,7 @@ def get_args():
                         help='number of encoder layers')
     parser.add_argument('--d_layers', type=int, default=4,
                         help='number of decoder layers')
-    parser.add_argument('--d_ff', type=int, default=256,
+    parser.add_argument('--d_ff', type=int, default=2048,
                         help='dimension of feed-forward network')
     parser.add_argument('--factor', type=int, default=5,
                         help='attention factor')
@@ -117,7 +93,7 @@ def get_args():
     parser.add_argument('--loss', type=str, default='mse',
                         choices=['mse', 'mae', 'huber'],
                         help='loss function')
-    parser.add_argument('--train_epochs', type=int, default=1,
+    parser.add_argument('--train_epochs', type=int, default=100,
                         help='number of training epochs')
     parser.add_argument('--patience', type=int, default=10,
                         help='early stopping patience')
@@ -165,19 +141,15 @@ def get_args():
         args.device_ids = [int(id_) for id_ in args.devices.split(',')]
         args.gpu = args.device_ids[0]
     
-    return args, experiment_desc
+    return args
 
 
 def main():
     """
     主函数
     """
-
-    # 获取时间戳
-    timestamp = time.strftime('%Y%m%d%H%M%S', time.localtime())
-    
     # 获取参数
-    args, experiment_desc = get_args()
+    args = get_args()
     
     # 设置随机种子
     set_seed(args.seed)
@@ -192,7 +164,7 @@ def main():
     print('=' * 80)
     
     # 构建实验设置名称
-    experiment_name = '{}_{}_sl{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_{}'.format(
+    setting = '{}_{}_sl{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_{}_{}_2'.format(
         args.model_id,
         args.model,
         args.seq_len,
@@ -203,43 +175,10 @@ def main():
         args.d_layers,
         args.d_ff,
         args.des,
+        args.seed
     )
-    run_name = f"run_seed{args.seed}_{timestamp}"
-
-    setting = os.path.join('experiments/', experiment_name + '/' + run_name)
-    if not os.path.exists(setting):
-        os.makedirs(setting)
-
-    description_content = f"""
-# 实验运行描述 (Experiment Run Description)
-
-* **实验 (Experiment):** `{experiment_name}`
-* **运行 (Run):** `{run_name}`
-* **时间 (Timestamp):** `{timestamp}`
-* **种子 (Seed):** `{args.seed}`
-
----
-
-## 运行备注 (Description)
-
-{experiment_desc.strip()}
-
----
-
-## 全部参数 (All Arguments)
-
-
-{json.dumps(vars(args), indent=4, ensure_ascii=False)}
-"""
-    desc_path = os.path.join(setting, 'description.md')
-    # 写入文件 (使用 utf-8 编码来支持中文)
-    try:
-        with open(desc_path, 'w', encoding='utf-8') as f:
-            f.write(description_content)
-        print(f"实验描述已保存到: {desc_path}")
-    except Exception as e:
-        print(f"警告: 保存实验描述失败 - {e}")
-        print(f'\nExperiment Setting: {setting}\n')
+    
+    print(f'\nExperiment Setting: {setting}\n')
     
     # 创建实验对象
     exp = Exp_Forecasting(args)
