@@ -71,7 +71,7 @@ class Exp_Forecasting(Exp_Basic):
                 batch_x = batch_x.float().to(self.device)
                 mask_x = mask_x.to(self.device)
                 mask_y = mask_y.to(self.device)
-                batch_y = batch_y[..., :2].float().to(self.device)
+                batch_y = batch_y.float().to(self.device)
                 
                 outputs_deltas = self.model(
                     x_enc=batch_x, 
@@ -251,7 +251,7 @@ class Exp_Forecasting(Exp_Basic):
         with torch.no_grad():
             for i, (batch_x, batch_y, mask_x, mask_y, ship_count, _, A_social, edge_features) in enumerate(test_loader):
                 batch_x = batch_x.float().to(self.device)
-                batch_y = batch_y[..., :2].float().to(self.device)
+                batch_y = batch_y.float().to(self.device)
                 
                 # [修改] 确保 mask 和 y_truth_abs=None 被传递
                 outputs_deltas = self.model(
@@ -351,7 +351,7 @@ class Exp_Forecasting(Exp_Basic):
                 )
                 
                 # [修改] 将增量重建为绝对坐标
-                outputs_absolute = self.model.integrate(outputs_deltas, batch_x)
+                outputs_absolute = self.model.integrate(outputs_deltas[..., :2], batch_x)
                 
                 preds.append(outputs_absolute.detach().cpu().numpy())
         

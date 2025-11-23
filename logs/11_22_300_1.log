@@ -51,7 +51,7 @@ Args in experiment:
   tcpa_thresh: 300.0
   dcpa_thresh: 1000.0
 ================================================================================
-实验描述已保存到: experiments/ship_traj_V3_0_0_ASTGNN_sl8_pl12_dm64_nh8_el4_dl4_df256_Exp/run_seed2024_20251122015010/description.md
+实验描述已保存到: experiments/ship_traj_V3_0_0_ASTGNN_sl8_pl12_dm64_nh8_el4_dl4_df256_Exp/run_seed2024_20251122064228/description.md
 Use GPU: cuda:0
 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 Training Stage
@@ -105,34 +105,506 @@ Loaded normalization parameters from: ./data/scaler_params.npy
 mask shape: (7409, 8, 17)
 mask shape: (7409, 12, 17)
 test dataset size: 7409
+	iters: 100, epoch: 1 | loss delta: 0.0546297,  loss absolute: 0.4433107, motion loss: 0.4922439 
+	iters: 200, epoch: 1 | loss delta: 0.0287278,  loss absolute: 0.2579777, motion loss: 0.3686147 
+	iters: 300, epoch: 1 | loss delta: 0.0171864,  loss absolute: 0.1326799, motion loss: 0.1414356 
+	iters: 400, epoch: 1 | loss delta: 0.0115125,  loss absolute: 0.0875181, motion loss: 0.1124986 
+	iters: 500, epoch: 1 | loss delta: 0.0086935,  loss absolute: 0.0789964, motion loss: 0.1037059 
+	iters: 600, epoch: 1 | loss delta: 0.0064713,  loss absolute: 0.0557943, motion loss: 0.0917672 
+	iters: 700, epoch: 1 | loss delta: 0.0055279,  loss absolute: 0.0434212, motion loss: 0.0806400 
+	iters: 800, epoch: 1 | loss delta: 0.0047239,  loss absolute: 0.0374090, motion loss: 0.0684077 
+	iters: 900, epoch: 1 | loss delta: 0.0038130,  loss absolute: 0.0315655, motion loss: 0.0568190 
+	iters: 1000, epoch: 1 | loss delta: 0.0036715,  loss absolute: 0.0282056, motion loss: 0.0551419 
+	iters: 1100, epoch: 1 | loss delta: 0.0032432,  loss absolute: 0.0282914, motion loss: 0.0483632 
+	iters: 1200, epoch: 1 | loss delta: 0.0060777,  loss absolute: 0.0246615, motion loss: 0.0409630 
+	iters: 1300, epoch: 1 | loss delta: 0.0025449,  loss absolute: 0.0214973, motion loss: 0.0420536 
+	iters: 1400, epoch: 1 | loss delta: 0.0024084,  loss absolute: 0.0234792, motion loss: 0.0554334 
+	iters: 1500, epoch: 1 | loss delta: 0.0021104,  loss absolute: 0.0187579, motion loss: 0.0374782 
+	iters: 1600, epoch: 1 | loss delta: 0.0020068,  loss absolute: 0.0182335, motion loss: 0.0388660 
+	iters: 1700, epoch: 1 | loss delta: 0.0019771,  loss absolute: 0.0191790, motion loss: 0.0558615 
+	iters: 1800, epoch: 1 | loss delta: 0.0020918,  loss absolute: 0.0137401, motion loss: 0.0346941 
+	iters: 1900, epoch: 1 | loss delta: 0.0016422,  loss absolute: 0.0147113, motion loss: 0.0353159 
+	iters: 2000, epoch: 1 | loss delta: 0.0014548,  loss absolute: 0.0132301, motion loss: 0.0410072 
+Epoch: 1 cost time: 1327.7631590366364
+Epoch: 1, Steps: 2057 | Train Loss: 0.0127104, 0.1973020, 0.1192470 Vali Loss: 0.0002041, 0.0032434, 0.0274499 Test Loss: 0.0001921, 0.0032310, 0.0271770
+Validation loss decreased (inf --> 0.003243).  Saving model ...
+Updating learning rate to 0.0001
+	iters: 100, epoch: 2 | loss delta: 0.0014142,  loss absolute: 0.0120085, motion loss: 0.0320063 
+	iters: 200, epoch: 2 | loss delta: 0.0013766,  loss absolute: 0.0130488, motion loss: 0.0535884 
+	iters: 300, epoch: 2 | loss delta: 0.0012349,  loss absolute: 0.0112782, motion loss: 0.0397460 
+	iters: 400, epoch: 2 | loss delta: 0.0011886,  loss absolute: 0.0125353, motion loss: 0.0428286 
+	iters: 500, epoch: 2 | loss delta: 0.0011172,  loss absolute: 0.0101951, motion loss: 0.0368615 
+	iters: 600, epoch: 2 | loss delta: 0.0010410,  loss absolute: 0.0107950, motion loss: 0.0469432 
+	iters: 700, epoch: 2 | loss delta: 0.0009725,  loss absolute: 0.0094919, motion loss: 0.0385900 
+	iters: 800, epoch: 2 | loss delta: 0.0010143,  loss absolute: 0.0098130, motion loss: 0.0333390 
+	iters: 900, epoch: 2 | loss delta: 0.0008747,  loss absolute: 0.0084195, motion loss: 0.0335454 
+	iters: 1000, epoch: 2 | loss delta: 0.0008710,  loss absolute: 0.0096140, motion loss: 0.0403650 
+	iters: 1100, epoch: 2 | loss delta: 0.0008387,  loss absolute: 0.0084115, motion loss: 0.0301743 
+	iters: 1200, epoch: 2 | loss delta: 0.0007457,  loss absolute: 0.0069313, motion loss: 0.0296124 
+	iters: 1300, epoch: 2 | loss delta: 0.0007865,  loss absolute: 0.0079457, motion loss: 0.0320433 
+	iters: 1400, epoch: 2 | loss delta: 0.0007556,  loss absolute: 0.0071040, motion loss: 0.0400371 
+	iters: 1500, epoch: 2 | loss delta: 0.0006977,  loss absolute: 0.0073723, motion loss: 0.0306486 
+	iters: 1600, epoch: 2 | loss delta: 0.0006831,  loss absolute: 0.0077346, motion loss: 0.0320388 
+	iters: 1700, epoch: 2 | loss delta: 0.0006078,  loss absolute: 0.0057850, motion loss: 0.0208420 
+	iters: 1800, epoch: 2 | loss delta: 0.0006390,  loss absolute: 0.0061561, motion loss: 0.0335625 
+	iters: 1900, epoch: 2 | loss delta: 0.0008725,  loss absolute: 0.0064818, motion loss: 0.0270668 
+	iters: 2000, epoch: 2 | loss delta: 0.0006783,  loss absolute: 0.0076662, motion loss: 0.0592068 
+Epoch: 2 cost time: 1328.7822799682617
+Epoch: 2, Steps: 2057 | Train Loss: 0.0009830, 0.0088362, 0.0362459 Vali Loss: 0.0001820, 0.0027588, 0.0236955 Test Loss: 0.0001700, 0.0026856, 0.0231684
+Validation loss decreased (0.003243 --> 0.002759).  Saving model ...
+Updating learning rate to 5e-05
+	iters: 100, epoch: 3 | loss delta: 0.0005754,  loss absolute: 0.0071782, motion loss: 0.0323133 
+	iters: 200, epoch: 3 | loss delta: 0.0005631,  loss absolute: 0.0055831, motion loss: 0.0386709 
+	iters: 300, epoch: 3 | loss delta: 0.0007951,  loss absolute: 0.0082913, motion loss: 0.0474520 
+	iters: 400, epoch: 3 | loss delta: 0.0006166,  loss absolute: 0.0054938, motion loss: 0.0309991 
+	iters: 500, epoch: 3 | loss delta: 0.0005210,  loss absolute: 0.0055002, motion loss: 0.0318263 
+	iters: 600, epoch: 3 | loss delta: 0.0007059,  loss absolute: 0.0051133, motion loss: 0.0365670 
+	iters: 700, epoch: 3 | loss delta: 0.0005550,  loss absolute: 0.0064321, motion loss: 0.0476651 
+	iters: 800, epoch: 3 | loss delta: 0.0004474,  loss absolute: 0.0044407, motion loss: 0.0203021 
+	iters: 900, epoch: 3 | loss delta: 0.0004827,  loss absolute: 0.0053780, motion loss: 0.0308210 
+	iters: 1000, epoch: 3 | loss delta: 0.0004748,  loss absolute: 0.0046956, motion loss: 0.0278953 
+	iters: 1100, epoch: 3 | loss delta: 0.0004925,  loss absolute: 0.0043916, motion loss: 0.0291928 
+	iters: 1200, epoch: 3 | loss delta: 0.0004667,  loss absolute: 0.0059814, motion loss: 0.0377466 
+	iters: 1300, epoch: 3 | loss delta: 0.0006473,  loss absolute: 0.0037587, motion loss: 0.0260541 
+	iters: 1400, epoch: 3 | loss delta: 0.0004170,  loss absolute: 0.0046028, motion loss: 0.0321726 
+	iters: 1500, epoch: 3 | loss delta: 0.0004221,  loss absolute: 0.0038423, motion loss: 0.0220823 
+	iters: 1600, epoch: 3 | loss delta: 0.0004251,  loss absolute: 0.0045813, motion loss: 0.0336028 
+	iters: 1700, epoch: 3 | loss delta: 0.0004036,  loss absolute: 0.0036042, motion loss: 0.0436518 
+	iters: 1800, epoch: 3 | loss delta: 0.0003895,  loss absolute: 0.0036968, motion loss: 0.0312954 
+	iters: 1900, epoch: 3 | loss delta: 0.0004365,  loss absolute: 0.0042693, motion loss: 0.0274710 
+	iters: 2000, epoch: 3 | loss delta: 0.0004178,  loss absolute: 0.0051814, motion loss: 0.0274090 
+Epoch: 3 cost time: 1347.2736222743988
+Epoch: 3, Steps: 2057 | Train Loss: 0.0005494, 0.0052640, 0.0316318 Vali Loss: 0.0001715, 0.0022413, 0.0224280 Test Loss: 0.0001592, 0.0021804, 0.0218899
+Validation loss decreased (0.002759 --> 0.002241).  Saving model ...
+Updating learning rate to 2.5e-05
+	iters: 100, epoch: 4 | loss delta: 0.0004176,  loss absolute: 0.0047162, motion loss: 0.0332228 
+	iters: 200, epoch: 4 | loss delta: 0.0004082,  loss absolute: 0.0041418, motion loss: 0.0317846 
+	iters: 300, epoch: 4 | loss delta: 0.0003716,  loss absolute: 0.0043892, motion loss: 0.0283834 
+	iters: 400, epoch: 4 | loss delta: 0.0005950,  loss absolute: 0.0066557, motion loss: 0.0434439 
+	iters: 500, epoch: 4 | loss delta: 0.0004101,  loss absolute: 0.0042454, motion loss: 0.0272409 
+	iters: 600, epoch: 4 | loss delta: 0.0003376,  loss absolute: 0.0036605, motion loss: 0.0245312 
+	iters: 700, epoch: 4 | loss delta: 0.0003713,  loss absolute: 0.0047135, motion loss: 0.0269136 
+	iters: 800, epoch: 4 | loss delta: 0.0006454,  loss absolute: 0.0046968, motion loss: 0.0377525 
+	iters: 900, epoch: 4 | loss delta: 0.0003658,  loss absolute: 0.0044172, motion loss: 0.0280867 
+	iters: 1000, epoch: 4 | loss delta: 0.0003505,  loss absolute: 0.0040304, motion loss: 0.0274451 
+	iters: 1100, epoch: 4 | loss delta: 0.0003273,  loss absolute: 0.0036211, motion loss: 0.0299986 
+	iters: 1200, epoch: 4 | loss delta: 0.0003441,  loss absolute: 0.0041617, motion loss: 0.0258528 
+	iters: 1300, epoch: 4 | loss delta: 0.0003561,  loss absolute: 0.0040824, motion loss: 0.0296449 
+	iters: 1400, epoch: 4 | loss delta: 0.0003390,  loss absolute: 0.0043317, motion loss: 0.0375803 
+	iters: 1500, epoch: 4 | loss delta: 0.0003032,  loss absolute: 0.0034474, motion loss: 0.0253538 
+	iters: 1600, epoch: 4 | loss delta: 0.0003483,  loss absolute: 0.0046682, motion loss: 0.0400956 
+	iters: 1700, epoch: 4 | loss delta: 0.0003230,  loss absolute: 0.0035468, motion loss: 0.0270193 
+	iters: 1800, epoch: 4 | loss delta: 0.0003701,  loss absolute: 0.0032508, motion loss: 0.0285754 
+	iters: 1900, epoch: 4 | loss delta: 0.0003201,  loss absolute: 0.0035084, motion loss: 0.0322805 
+	iters: 2000, epoch: 4 | loss delta: 0.0003294,  loss absolute: 0.0037939, motion loss: 0.0276073 
+Epoch: 4 cost time: 1348.7542371749878
+Epoch: 4, Steps: 2057 | Train Loss: 0.0004245, 0.0042107, 0.0298761 Vali Loss: 0.0001681, 0.0021230, 0.0217903 Test Loss: 0.0001558, 0.0020578, 0.0213052
+Validation loss decreased (0.002241 --> 0.002123).  Saving model ...
+Updating learning rate to 1.25e-05
+	iters: 100, epoch: 5 | loss delta: 0.0003667,  loss absolute: 0.0033368, motion loss: 0.0235712 
+	iters: 200, epoch: 5 | loss delta: 0.0004156,  loss absolute: 0.0037608, motion loss: 0.0247532 
+	iters: 300, epoch: 5 | loss delta: 0.0002903,  loss absolute: 0.0036339, motion loss: 0.0262634 
+	iters: 400, epoch: 5 | loss delta: 0.0003087,  loss absolute: 0.0039268, motion loss: 0.0375455 
+	iters: 500, epoch: 5 | loss delta: 0.0010983,  loss absolute: 0.0037095, motion loss: 0.0406247 
+	iters: 600, epoch: 5 | loss delta: 0.0003219,  loss absolute: 0.0045483, motion loss: 0.0304012 
+	iters: 700, epoch: 5 | loss delta: 0.0003232,  loss absolute: 0.0037494, motion loss: 0.0261942 
+	iters: 800, epoch: 5 | loss delta: 0.0003194,  loss absolute: 0.0039248, motion loss: 0.0333643 
+	iters: 900, epoch: 5 | loss delta: 0.0002968,  loss absolute: 0.0036636, motion loss: 0.0273442 
+	iters: 1000, epoch: 5 | loss delta: 0.0003567,  loss absolute: 0.0031750, motion loss: 0.0218016 
+	iters: 1100, epoch: 5 | loss delta: 0.0003200,  loss absolute: 0.0038889, motion loss: 0.0347322 
+	iters: 1200, epoch: 5 | loss delta: 0.0002627,  loss absolute: 0.0024137, motion loss: 0.0203559 
+	iters: 1300, epoch: 5 | loss delta: 0.0003095,  loss absolute: 0.0042185, motion loss: 0.0349237 
+	iters: 1400, epoch: 5 | loss delta: 0.0002852,  loss absolute: 0.0037915, motion loss: 0.0308962 
+	iters: 1500, epoch: 5 | loss delta: 0.0003762,  loss absolute: 0.0034234, motion loss: 0.0260767 
+	iters: 1600, epoch: 5 | loss delta: 0.0002849,  loss absolute: 0.0033619, motion loss: 0.0264407 
+	iters: 1700, epoch: 5 | loss delta: 0.0004088,  loss absolute: 0.0038809, motion loss: 0.0244600 
+	iters: 1800, epoch: 5 | loss delta: 0.0002962,  loss absolute: 0.0038788, motion loss: 0.0331113 
+	iters: 1900, epoch: 5 | loss delta: 0.0002844,  loss absolute: 0.0034311, motion loss: 0.0272523 
+	iters: 2000, epoch: 5 | loss delta: 0.0002743,  loss absolute: 0.0028962, motion loss: 0.0184955 
+Epoch: 5 cost time: 1355.0017673969269
+Epoch: 5, Steps: 2057 | Train Loss: 0.0003704, 0.0037619, 0.0290649 Vali Loss: 0.0001670, 0.0021098, 0.0217283 Test Loss: 0.0001556, 0.0020496, 0.0211646
+Validation loss decreased (0.002123 --> 0.002110).  Saving model ...
+Updating learning rate to 6.25e-06
+	iters: 100, epoch: 6 | loss delta: 0.0002974,  loss absolute: 0.0039235, motion loss: 0.0266674 
+	iters: 200, epoch: 6 | loss delta: 0.0003757,  loss absolute: 0.0037449, motion loss: 0.0334302 
+	iters: 300, epoch: 6 | loss delta: 0.0002778,  loss absolute: 0.0034705, motion loss: 0.0238472 
+	iters: 400, epoch: 6 | loss delta: 0.0002516,  loss absolute: 0.0028929, motion loss: 0.0196277 
+	iters: 500, epoch: 6 | loss delta: 0.0002947,  loss absolute: 0.0030503, motion loss: 0.0244989 
+	iters: 600, epoch: 6 | loss delta: 0.0002736,  loss absolute: 0.0035788, motion loss: 0.0258754 
+	iters: 700, epoch: 6 | loss delta: 0.0003732,  loss absolute: 0.0041055, motion loss: 0.0278994 
+	iters: 800, epoch: 6 | loss delta: 0.0002949,  loss absolute: 0.0033192, motion loss: 0.0242676 
+	iters: 900, epoch: 6 | loss delta: 0.0002921,  loss absolute: 0.0035511, motion loss: 0.0300184 
+	iters: 1000, epoch: 6 | loss delta: 0.0002847,  loss absolute: 0.0029724, motion loss: 0.0266700 
+	iters: 1100, epoch: 6 | loss delta: 0.0002762,  loss absolute: 0.0040053, motion loss: 0.0336329 
+	iters: 1200, epoch: 6 | loss delta: 0.0003514,  loss absolute: 0.0032910, motion loss: 0.0245536 
+	iters: 1300, epoch: 6 | loss delta: 0.0003303,  loss absolute: 0.0033586, motion loss: 0.0384779 
+	iters: 1400, epoch: 6 | loss delta: 0.0005730,  loss absolute: 0.0033632, motion loss: 0.0278645 
+	iters: 1500, epoch: 6 | loss delta: 0.0003129,  loss absolute: 0.0032433, motion loss: 0.0251498 
+	iters: 1600, epoch: 6 | loss delta: 0.0002520,  loss absolute: 0.0030296, motion loss: 0.0227520 
+	iters: 1700, epoch: 6 | loss delta: 0.0002669,  loss absolute: 0.0025852, motion loss: 0.0235843 
+	iters: 1800, epoch: 6 | loss delta: 0.0003041,  loss absolute: 0.0030312, motion loss: 0.0281100 
+	iters: 1900, epoch: 6 | loss delta: 0.0005787,  loss absolute: 0.0043605, motion loss: 0.0257218 
+	iters: 2000, epoch: 6 | loss delta: 0.0002491,  loss absolute: 0.0032456, motion loss: 0.0220772 
+Epoch: 6 cost time: 1356.2542357444763
+Epoch: 6, Steps: 2057 | Train Loss: 0.0003464, 0.0035450, 0.0287052 Vali Loss: 0.0001662, 0.0020460, 0.0214366 Test Loss: 0.0001542, 0.0019834, 0.0209180
+Validation loss decreased (0.002110 --> 0.002046).  Saving model ...
+Updating learning rate to 3.125e-06
+	iters: 100, epoch: 7 | loss delta: 0.0003404,  loss absolute: 0.0034691, motion loss: 0.0267485 
+	iters: 200, epoch: 7 | loss delta: 0.0002262,  loss absolute: 0.0025386, motion loss: 0.0251204 
+	iters: 300, epoch: 7 | loss delta: 0.0002653,  loss absolute: 0.0033474, motion loss: 0.0242841 
+	iters: 400, epoch: 7 | loss delta: 0.0002829,  loss absolute: 0.0041720, motion loss: 0.0291868 
+	iters: 500, epoch: 7 | loss delta: 0.0002753,  loss absolute: 0.0028542, motion loss: 0.0252677 
+	iters: 600, epoch: 7 | loss delta: 0.0002828,  loss absolute: 0.0030246, motion loss: 0.0282998 
+	iters: 700, epoch: 7 | loss delta: 0.0004791,  loss absolute: 0.0032675, motion loss: 0.0302592 
+	iters: 800, epoch: 7 | loss delta: 0.0003026,  loss absolute: 0.0040078, motion loss: 0.0354658 
+	iters: 900, epoch: 7 | loss delta: 0.0002745,  loss absolute: 0.0040444, motion loss: 0.0317348 
+	iters: 1000, epoch: 7 | loss delta: 0.0003457,  loss absolute: 0.0029631, motion loss: 0.0261150 
+	iters: 1100, epoch: 7 | loss delta: 0.0002553,  loss absolute: 0.0032559, motion loss: 0.0236727 
+	iters: 1200, epoch: 7 | loss delta: 0.0007008,  loss absolute: 0.0032200, motion loss: 0.0263558 
+	iters: 1300, epoch: 7 | loss delta: 0.0003014,  loss absolute: 0.0039696, motion loss: 0.0420317 
+	iters: 1400, epoch: 7 | loss delta: 0.0002852,  loss absolute: 0.0032763, motion loss: 0.0274959 
+	iters: 1500, epoch: 7 | loss delta: 0.0002924,  loss absolute: 0.0040480, motion loss: 0.0265213 
+	iters: 1600, epoch: 7 | loss delta: 0.0004533,  loss absolute: 0.0042350, motion loss: 0.0270436 
+	iters: 1700, epoch: 7 | loss delta: 0.0004053,  loss absolute: 0.0037524, motion loss: 0.0267618 
+	iters: 1800, epoch: 7 | loss delta: 0.0003611,  loss absolute: 0.0028148, motion loss: 0.0195383 
+	iters: 1900, epoch: 7 | loss delta: 0.0002853,  loss absolute: 0.0038779, motion loss: 0.0282659 
+	iters: 2000, epoch: 7 | loss delta: 0.0003377,  loss absolute: 0.0031261, motion loss: 0.0219312 
+Epoch: 7 cost time: 1321.1943364143372
+Epoch: 7, Steps: 2057 | Train Loss: 0.0003345, 0.0034641, 0.0285460 Vali Loss: 0.0001640, 0.0020397, 0.0215429 Test Loss: 0.0001540, 0.0019845, 0.0209875
+Validation loss decreased (0.002046 --> 0.002040).  Saving model ...
+Updating learning rate to 1.5625e-06
+	iters: 100, epoch: 8 | loss delta: 0.0003711,  loss absolute: 0.0031761, motion loss: 0.0208131 
+	iters: 200, epoch: 8 | loss delta: 0.0002538,  loss absolute: 0.0030138, motion loss: 0.0413367 
+	iters: 300, epoch: 8 | loss delta: 0.0003946,  loss absolute: 0.0031551, motion loss: 0.0309713 
+	iters: 400, epoch: 8 | loss delta: 0.0002575,  loss absolute: 0.0042530, motion loss: 0.0244223 
+	iters: 500, epoch: 8 | loss delta: 0.0002695,  loss absolute: 0.0038085, motion loss: 0.0423402 
+	iters: 600, epoch: 8 | loss delta: 0.0002756,  loss absolute: 0.0036919, motion loss: 0.0258829 
+	iters: 700, epoch: 8 | loss delta: 0.0002222,  loss absolute: 0.0024045, motion loss: 0.0199752 
+	iters: 800, epoch: 8 | loss delta: 0.0002679,  loss absolute: 0.0038235, motion loss: 0.0411403 
+	iters: 900, epoch: 8 | loss delta: 0.0003126,  loss absolute: 0.0048035, motion loss: 0.0431266 
+	iters: 1000, epoch: 8 | loss delta: 0.0002436,  loss absolute: 0.0029092, motion loss: 0.0275957 
+	iters: 1100, epoch: 8 | loss delta: 0.0002979,  loss absolute: 0.0038463, motion loss: 0.0324279 
+	iters: 1200, epoch: 8 | loss delta: 0.0002737,  loss absolute: 0.0039953, motion loss: 0.0299757 
+	iters: 1300, epoch: 8 | loss delta: 0.0003399,  loss absolute: 0.0035432, motion loss: 0.0346030 
+	iters: 1400, epoch: 8 | loss delta: 0.0002493,  loss absolute: 0.0028227, motion loss: 0.0295686 
+	iters: 1500, epoch: 8 | loss delta: 0.0003613,  loss absolute: 0.0031181, motion loss: 0.0257371 
+	iters: 1600, epoch: 8 | loss delta: 0.0002550,  loss absolute: 0.0036754, motion loss: 0.0268555 
+	iters: 1700, epoch: 8 | loss delta: 0.0002414,  loss absolute: 0.0029837, motion loss: 0.0212497 
+	iters: 1800, epoch: 8 | loss delta: 0.0003004,  loss absolute: 0.0033623, motion loss: 0.0280280 
+	iters: 1900, epoch: 8 | loss delta: 0.0002643,  loss absolute: 0.0038569, motion loss: 0.0322775 
+	iters: 2000, epoch: 8 | loss delta: 0.0002508,  loss absolute: 0.0027910, motion loss: 0.0271210 
+Epoch: 8 cost time: 1332.8803312778473
+Epoch: 8, Steps: 2057 | Train Loss: 0.0003278, 0.0034093, 0.0284700 Vali Loss: 0.0001655, 0.0020154, 0.0214427 Test Loss: 0.0001533, 0.0019519, 0.0209263
+Validation loss decreased (0.002040 --> 0.002015).  Saving model ...
+Updating learning rate to 7.8125e-07
+	iters: 100, epoch: 9 | loss delta: 0.0004878,  loss absolute: 0.0064372, motion loss: 0.0234857 
+	iters: 200, epoch: 9 | loss delta: 0.0003792,  loss absolute: 0.0041033, motion loss: 0.0373592 
+	iters: 300, epoch: 9 | loss delta: 0.0002375,  loss absolute: 0.0031513, motion loss: 0.0291066 
+	iters: 400, epoch: 9 | loss delta: 0.0002794,  loss absolute: 0.0038625, motion loss: 0.0339722 
+	iters: 500, epoch: 9 | loss delta: 0.0002653,  loss absolute: 0.0037522, motion loss: 0.0253493 
+	iters: 600, epoch: 9 | loss delta: 0.0002676,  loss absolute: 0.0042220, motion loss: 0.0373821 
+	iters: 700, epoch: 9 | loss delta: 0.0003216,  loss absolute: 0.0034336, motion loss: 0.0301585 
+	iters: 800, epoch: 9 | loss delta: 0.0003868,  loss absolute: 0.0040976, motion loss: 0.0272759 
+	iters: 900, epoch: 9 | loss delta: 0.0002516,  loss absolute: 0.0025964, motion loss: 0.0293025 
+	iters: 1000, epoch: 9 | loss delta: 0.0002588,  loss absolute: 0.0035896, motion loss: 0.0339969 
+	iters: 1100, epoch: 9 | loss delta: 0.0002295,  loss absolute: 0.0027291, motion loss: 0.0237984 
+	iters: 1200, epoch: 9 | loss delta: 0.0002761,  loss absolute: 0.0040963, motion loss: 0.0289345 
+	iters: 1300, epoch: 9 | loss delta: 0.0002642,  loss absolute: 0.0032156, motion loss: 0.0254891 
+	iters: 1400, epoch: 9 | loss delta: 0.0002324,  loss absolute: 0.0029737, motion loss: 0.0309635 
+	iters: 1500, epoch: 9 | loss delta: 0.0002232,  loss absolute: 0.0025776, motion loss: 0.0244324 
+	iters: 1600, epoch: 9 | loss delta: 0.0004566,  loss absolute: 0.0040929, motion loss: 0.0288222 
+	iters: 1700, epoch: 9 | loss delta: 0.0002444,  loss absolute: 0.0027042, motion loss: 0.0245045 
+	iters: 1800, epoch: 9 | loss delta: 0.0002681,  loss absolute: 0.0035066, motion loss: 0.0258830 
+	iters: 1900, epoch: 9 | loss delta: 0.0002449,  loss absolute: 0.0030544, motion loss: 0.0309403 
+	iters: 2000, epoch: 9 | loss delta: 0.0002480,  loss absolute: 0.0030791, motion loss: 0.0320580 
+Epoch: 9 cost time: 1353.741091966629
+Epoch: 9, Steps: 2057 | Train Loss: 0.0003249, 0.0033881, 0.0283870 Vali Loss: 0.0001660, 0.0020080, 0.0214070 Test Loss: 0.0001532, 0.0019445, 0.0208923
+Validation loss decreased (0.002015 --> 0.002008).  Saving model ...
+Updating learning rate to 3.90625e-07
+	iters: 100, epoch: 10 | loss delta: 0.0002644,  loss absolute: 0.0031039, motion loss: 0.0302180 
+	iters: 200, epoch: 10 | loss delta: 0.0002517,  loss absolute: 0.0036439, motion loss: 0.0308066 
+	iters: 300, epoch: 10 | loss delta: 0.0002366,  loss absolute: 0.0029599, motion loss: 0.0274743 
+	iters: 400, epoch: 10 | loss delta: 0.0003515,  loss absolute: 0.0037078, motion loss: 0.0318049 
+	iters: 500, epoch: 10 | loss delta: 0.0002680,  loss absolute: 0.0029494, motion loss: 0.0296880 
+	iters: 600, epoch: 10 | loss delta: 0.0002090,  loss absolute: 0.0022518, motion loss: 0.0217102 
+	iters: 700, epoch: 10 | loss delta: 0.0003310,  loss absolute: 0.0029317, motion loss: 0.0255117 
+	iters: 800, epoch: 10 | loss delta: 0.0002556,  loss absolute: 0.0034609, motion loss: 0.0280706 
+	iters: 900, epoch: 10 | loss delta: 0.0002776,  loss absolute: 0.0032268, motion loss: 0.0236729 
+	iters: 1000, epoch: 10 | loss delta: 0.0002769,  loss absolute: 0.0041245, motion loss: 0.0276489 
+	iters: 1100, epoch: 10 | loss delta: 0.0002711,  loss absolute: 0.0037477, motion loss: 0.0244883 
+	iters: 1200, epoch: 10 | loss delta: 0.0002557,  loss absolute: 0.0030453, motion loss: 0.0312675 
+	iters: 1300, epoch: 10 | loss delta: 0.0002745,  loss absolute: 0.0040562, motion loss: 0.0317552 
+	iters: 1400, epoch: 10 | loss delta: 0.0003069,  loss absolute: 0.0031630, motion loss: 0.0333119 
+	iters: 1500, epoch: 10 | loss delta: 0.0002584,  loss absolute: 0.0030641, motion loss: 0.0294537 
+	iters: 1600, epoch: 10 | loss delta: 0.0003303,  loss absolute: 0.0033066, motion loss: 0.0270983 
+	iters: 1700, epoch: 10 | loss delta: 0.0002495,  loss absolute: 0.0033601, motion loss: 0.0331886 
+	iters: 1800, epoch: 10 | loss delta: 0.0002408,  loss absolute: 0.0029405, motion loss: 0.0232386 
+	iters: 1900, epoch: 10 | loss delta: 0.0002865,  loss absolute: 0.0044362, motion loss: 0.0416714 
+	iters: 2000, epoch: 10 | loss delta: 0.0002642,  loss absolute: 0.0033417, motion loss: 0.0313924 
+Epoch: 10 cost time: 1334.7172768115997
+Epoch: 10, Steps: 2057 | Train Loss: 0.0003235, 0.0033645, 0.0283491 Vali Loss: 0.0001658, 0.0020321, 0.0214172 Test Loss: 0.0001534, 0.0019560, 0.0208829
+EarlyStopping counter: 1 out of 10
+Updating learning rate to 1.953125e-07
+	iters: 100, epoch: 11 | loss delta: 0.0004486,  loss absolute: 0.0029015, motion loss: 0.0249785 
+	iters: 200, epoch: 11 | loss delta: 0.0004576,  loss absolute: 0.0031599, motion loss: 0.0341025 
+	iters: 300, epoch: 11 | loss delta: 0.0002888,  loss absolute: 0.0035620, motion loss: 0.0285155 
+	iters: 400, epoch: 11 | loss delta: 0.0003592,  loss absolute: 0.0040261, motion loss: 0.0331921 
+	iters: 500, epoch: 11 | loss delta: 0.0002752,  loss absolute: 0.0035113, motion loss: 0.0329833 
+	iters: 600, epoch: 11 | loss delta: 0.0002298,  loss absolute: 0.0027762, motion loss: 0.0184455 
+	iters: 700, epoch: 11 | loss delta: 0.0002446,  loss absolute: 0.0035379, motion loss: 0.0257962 
+	iters: 800, epoch: 11 | loss delta: 0.0002795,  loss absolute: 0.0040674, motion loss: 0.0346314 
+	iters: 900, epoch: 11 | loss delta: 0.0002486,  loss absolute: 0.0034593, motion loss: 0.0234308 
+	iters: 1000, epoch: 11 | loss delta: 0.0002700,  loss absolute: 0.0035358, motion loss: 0.0357427 
+	iters: 1100, epoch: 11 | loss delta: 0.0002590,  loss absolute: 0.0035692, motion loss: 0.0248436 
+	iters: 1200, epoch: 11 | loss delta: 0.0003142,  loss absolute: 0.0033594, motion loss: 0.0369262 
+	iters: 1300, epoch: 11 | loss delta: 0.0002877,  loss absolute: 0.0036216, motion loss: 0.0218030 
+	iters: 1400, epoch: 11 | loss delta: 0.0006989,  loss absolute: 0.0027412, motion loss: 0.0235604 
+	iters: 1500, epoch: 11 | loss delta: 0.0002928,  loss absolute: 0.0034321, motion loss: 0.0269036 
+	iters: 1600, epoch: 11 | loss delta: 0.0002388,  loss absolute: 0.0027076, motion loss: 0.0273297 
+	iters: 1700, epoch: 11 | loss delta: 0.0003545,  loss absolute: 0.0030619, motion loss: 0.0213738 
+	iters: 1800, epoch: 11 | loss delta: 0.0002801,  loss absolute: 0.0041102, motion loss: 0.0329714 
+	iters: 1900, epoch: 11 | loss delta: 0.0002618,  loss absolute: 0.0031563, motion loss: 0.0302141 
+	iters: 2000, epoch: 11 | loss delta: 0.0002426,  loss absolute: 0.0029197, motion loss: 0.0283075 
+Epoch: 11 cost time: 1332.6715831756592
+Epoch: 11, Steps: 2057 | Train Loss: 0.0003232, 0.0033578, 0.0283213 Vali Loss: 0.0001669, 0.0020236, 0.0213501 Test Loss: 0.0001532, 0.0019470, 0.0208845
+EarlyStopping counter: 2 out of 10
+Updating learning rate to 9.765625e-08
+	iters: 100, epoch: 12 | loss delta: 0.0002886,  loss absolute: 0.0040841, motion loss: 0.0305512 
+	iters: 200, epoch: 12 | loss delta: 0.0002561,  loss absolute: 0.0038342, motion loss: 0.0300951 
+	iters: 300, epoch: 12 | loss delta: 0.0002404,  loss absolute: 0.0035363, motion loss: 0.0254804 
+	iters: 400, epoch: 12 | loss delta: 0.0002884,  loss absolute: 0.0030737, motion loss: 0.0324853 
+	iters: 500, epoch: 12 | loss delta: 0.0002489,  loss absolute: 0.0039911, motion loss: 0.0279530 
+	iters: 600, epoch: 12 | loss delta: 0.0006000,  loss absolute: 0.0036056, motion loss: 0.0289537 
+	iters: 700, epoch: 12 | loss delta: 0.0002616,  loss absolute: 0.0034008, motion loss: 0.0336982 
+	iters: 800, epoch: 12 | loss delta: 0.0002204,  loss absolute: 0.0021551, motion loss: 0.0216828 
+	iters: 900, epoch: 12 | loss delta: 0.0003866,  loss absolute: 0.0039820, motion loss: 0.0271863 
+	iters: 1000, epoch: 12 | loss delta: 0.0002267,  loss absolute: 0.0023632, motion loss: 0.0165316 
+	iters: 1100, epoch: 12 | loss delta: 0.0002379,  loss absolute: 0.0038270, motion loss: 0.0301702 
+	iters: 1200, epoch: 12 | loss delta: 0.0002569,  loss absolute: 0.0028022, motion loss: 0.0219650 
+	iters: 1300, epoch: 12 | loss delta: 0.0002299,  loss absolute: 0.0030204, motion loss: 0.0228818 
+	iters: 1400, epoch: 12 | loss delta: 0.0002234,  loss absolute: 0.0025048, motion loss: 0.0185793 
+	iters: 1500, epoch: 12 | loss delta: 0.0002394,  loss absolute: 0.0027728, motion loss: 0.0212534 
+	iters: 1600, epoch: 12 | loss delta: 0.0002742,  loss absolute: 0.0031215, motion loss: 0.0235671 
+	iters: 1700, epoch: 12 | loss delta: 0.0002771,  loss absolute: 0.0031434, motion loss: 0.0300693 
+	iters: 1800, epoch: 12 | loss delta: 0.0002723,  loss absolute: 0.0031235, motion loss: 0.0369676 
+	iters: 1900, epoch: 12 | loss delta: 0.0002500,  loss absolute: 0.0031624, motion loss: 0.0304170 
+	iters: 2000, epoch: 12 | loss delta: 0.0002840,  loss absolute: 0.0050379, motion loss: 0.0419632 
+Epoch: 12 cost time: 1331.9462773799896
+Epoch: 12, Steps: 2057 | Train Loss: 0.0003231, 0.0033627, 0.0283421 Vali Loss: 0.0001656, 0.0020201, 0.0214577 Test Loss: 0.0001532, 0.0019476, 0.0208819
+EarlyStopping counter: 3 out of 10
+Updating learning rate to 4.8828125e-08
+	iters: 100, epoch: 13 | loss delta: 0.0003505,  loss absolute: 0.0033403, motion loss: 0.0240096 
+	iters: 200, epoch: 13 | loss delta: 0.0002479,  loss absolute: 0.0034356, motion loss: 0.0231897 
+	iters: 300, epoch: 13 | loss delta: 0.0006799,  loss absolute: 0.0035964, motion loss: 0.0266217 
+	iters: 400, epoch: 13 | loss delta: 0.0003000,  loss absolute: 0.0051352, motion loss: 0.0355563 
+	iters: 500, epoch: 13 | loss delta: 0.0002303,  loss absolute: 0.0025965, motion loss: 0.0220189 
+	iters: 600, epoch: 13 | loss delta: 0.0002502,  loss absolute: 0.0028862, motion loss: 0.0278777 
+	iters: 700, epoch: 13 | loss delta: 0.0002514,  loss absolute: 0.0030802, motion loss: 0.0232010 
+	iters: 800, epoch: 13 | loss delta: 0.0002531,  loss absolute: 0.0032746, motion loss: 0.0256828 
+	iters: 900, epoch: 13 | loss delta: 0.0005196,  loss absolute: 0.0041792, motion loss: 0.0280707 
+	iters: 1000, epoch: 13 | loss delta: 0.0006754,  loss absolute: 0.0034662, motion loss: 0.0252824 
+	iters: 1100, epoch: 13 | loss delta: 0.0002683,  loss absolute: 0.0034344, motion loss: 0.0272103 
+	iters: 1200, epoch: 13 | loss delta: 0.0002395,  loss absolute: 0.0033011, motion loss: 0.0266449 
+	iters: 1300, epoch: 13 | loss delta: 0.0002702,  loss absolute: 0.0039676, motion loss: 0.0301909 
+	iters: 1400, epoch: 13 | loss delta: 0.0002420,  loss absolute: 0.0029997, motion loss: 0.0323376 
+	iters: 1500, epoch: 13 | loss delta: 0.0002536,  loss absolute: 0.0032325, motion loss: 0.0321895 
+	iters: 1600, epoch: 13 | loss delta: 0.0005648,  loss absolute: 0.0034972, motion loss: 0.0369779 
+	iters: 1700, epoch: 13 | loss delta: 0.0033488,  loss absolute: 0.0044546, motion loss: 0.0311150 
+	iters: 1800, epoch: 13 | loss delta: 0.0002401,  loss absolute: 0.0033579, motion loss: 0.0269943 
+	iters: 1900, epoch: 13 | loss delta: 0.0002426,  loss absolute: 0.0031286, motion loss: 0.0261570 
+	iters: 2000, epoch: 13 | loss delta: 0.0002378,  loss absolute: 0.0025800, motion loss: 0.0234422 
+Epoch: 13 cost time: 1325.8408424854279
+Epoch: 13, Steps: 2057 | Train Loss: 0.0003225, 0.0033562, 0.0283989 Vali Loss: 0.0001659, 0.0020175, 0.0214014 Test Loss: 0.0001532, 0.0019478, 0.0208771
+EarlyStopping counter: 4 out of 10
+Updating learning rate to 2.44140625e-08
+	iters: 100, epoch: 14 | loss delta: 0.0002430,  loss absolute: 0.0031733, motion loss: 0.0243465 
+	iters: 200, epoch: 14 | loss delta: 0.0002463,  loss absolute: 0.0034538, motion loss: 0.0287074 
+	iters: 300, epoch: 14 | loss delta: 0.0002592,  loss absolute: 0.0042524, motion loss: 0.0328941 
+	iters: 400, epoch: 14 | loss delta: 0.0002719,  loss absolute: 0.0035402, motion loss: 0.0331069 
+	iters: 500, epoch: 14 | loss delta: 0.0002597,  loss absolute: 0.0035015, motion loss: 0.0249069 
+	iters: 600, epoch: 14 | loss delta: 0.0002796,  loss absolute: 0.0032182, motion loss: 0.0227847 
+	iters: 700, epoch: 14 | loss delta: 0.0003412,  loss absolute: 0.0032960, motion loss: 0.0378372 
+	iters: 800, epoch: 14 | loss delta: 0.0002359,  loss absolute: 0.0028048, motion loss: 0.0225940 
+	iters: 900, epoch: 14 | loss delta: 0.0002726,  loss absolute: 0.0024921, motion loss: 0.0178884 
+	iters: 1000, epoch: 14 | loss delta: 0.0002672,  loss absolute: 0.0032579, motion loss: 0.0266495 
+	iters: 1100, epoch: 14 | loss delta: 0.0004939,  loss absolute: 0.0034553, motion loss: 0.0280145 
+	iters: 1200, epoch: 14 | loss delta: 0.0005360,  loss absolute: 0.0031530, motion loss: 0.0250379 
+	iters: 1300, epoch: 14 | loss delta: 0.0003224,  loss absolute: 0.0038193, motion loss: 0.0383148 
+	iters: 1400, epoch: 14 | loss delta: 0.0003385,  loss absolute: 0.0043980, motion loss: 0.0310118 
+	iters: 1500, epoch: 14 | loss delta: 0.0002500,  loss absolute: 0.0031809, motion loss: 0.0252596 
+	iters: 1600, epoch: 14 | loss delta: 0.0002352,  loss absolute: 0.0028496, motion loss: 0.0340340 
+	iters: 1700, epoch: 14 | loss delta: 0.0004059,  loss absolute: 0.0038700, motion loss: 0.0301563 
+	iters: 1800, epoch: 14 | loss delta: 0.0002553,  loss absolute: 0.0029428, motion loss: 0.0274939 
+	iters: 1900, epoch: 14 | loss delta: 0.0002936,  loss absolute: 0.0037021, motion loss: 0.0235129 
+	iters: 2000, epoch: 14 | loss delta: 0.0033893,  loss absolute: 0.0045841, motion loss: 0.0330566 
+Epoch: 14 cost time: 1324.746239900589
+Epoch: 14, Steps: 2057 | Train Loss: 0.0003226, 0.0033536, 0.0283398 Vali Loss: 0.0001633, 0.0020159, 0.0214164 Test Loss: 0.0001532, 0.0019486, 0.0208802
+EarlyStopping counter: 5 out of 10
+Updating learning rate to 1.220703125e-08
+	iters: 100, epoch: 15 | loss delta: 0.0002589,  loss absolute: 0.0032415, motion loss: 0.0278336 
+	iters: 200, epoch: 15 | loss delta: 0.0003964,  loss absolute: 0.0035715, motion loss: 0.0452640 
+	iters: 300, epoch: 15 | loss delta: 0.0004704,  loss absolute: 0.0040189, motion loss: 0.0305422 
+	iters: 400, epoch: 15 | loss delta: 0.0002513,  loss absolute: 0.0036889, motion loss: 0.0266460 
+	iters: 500, epoch: 15 | loss delta: 0.0002636,  loss absolute: 0.0039433, motion loss: 0.0329261 
+	iters: 600, epoch: 15 | loss delta: 0.0004872,  loss absolute: 0.0033641, motion loss: 0.0235616 
+	iters: 700, epoch: 15 | loss delta: 0.0002773,  loss absolute: 0.0035464, motion loss: 0.0241814 
+	iters: 800, epoch: 15 | loss delta: 0.0002533,  loss absolute: 0.0028575, motion loss: 0.0277274 
+	iters: 900, epoch: 15 | loss delta: 0.0002651,  loss absolute: 0.0039502, motion loss: 0.0272965 
+	iters: 1000, epoch: 15 | loss delta: 0.0002666,  loss absolute: 0.0034726, motion loss: 0.0438653 
+	iters: 1100, epoch: 15 | loss delta: 0.0003446,  loss absolute: 0.0040646, motion loss: 0.0288403 
+	iters: 1200, epoch: 15 | loss delta: 0.0002569,  loss absolute: 0.0034572, motion loss: 0.0214769 
+	iters: 1300, epoch: 15 | loss delta: 0.0002384,  loss absolute: 0.0032176, motion loss: 0.0272508 
+	iters: 1400, epoch: 15 | loss delta: 0.0002383,  loss absolute: 0.0028009, motion loss: 0.0248152 
+	iters: 1500, epoch: 15 | loss delta: 0.0002319,  loss absolute: 0.0032361, motion loss: 0.0245209 
+	iters: 1600, epoch: 15 | loss delta: 0.0003257,  loss absolute: 0.0029133, motion loss: 0.0213150 
+	iters: 1700, epoch: 15 | loss delta: 0.0002682,  loss absolute: 0.0038655, motion loss: 0.0289378 
+	iters: 1800, epoch: 15 | loss delta: 0.0002761,  loss absolute: 0.0028755, motion loss: 0.0302271 
+	iters: 1900, epoch: 15 | loss delta: 0.0002827,  loss absolute: 0.0039856, motion loss: 0.0270937 
+	iters: 2000, epoch: 15 | loss delta: 0.0002571,  loss absolute: 0.0026557, motion loss: 0.0262670 
+Epoch: 15 cost time: 1329.8120982646942
+Epoch: 15, Steps: 2057 | Train Loss: 0.0003227, 0.0033595, 0.0283510 Vali Loss: 0.0001638, 0.0020148, 0.0213728 Test Loss: 0.0001533, 0.0019492, 0.0208799
+EarlyStopping counter: 6 out of 10
+Updating learning rate to 6.103515625e-09
+	iters: 100, epoch: 16 | loss delta: 0.0002658,  loss absolute: 0.0033078, motion loss: 0.0268505 
+	iters: 200, epoch: 16 | loss delta: 0.0002711,  loss absolute: 0.0027121, motion loss: 0.0280903 
+	iters: 300, epoch: 16 | loss delta: 0.0002767,  loss absolute: 0.0037710, motion loss: 0.0302700 
+	iters: 400, epoch: 16 | loss delta: 0.0002788,  loss absolute: 0.0039696, motion loss: 0.0290012 
+	iters: 500, epoch: 16 | loss delta: 0.0002468,  loss absolute: 0.0030676, motion loss: 0.0220408 
+	iters: 600, epoch: 16 | loss delta: 0.0008222,  loss absolute: 0.0038748, motion loss: 0.0284875 
+	iters: 700, epoch: 16 | loss delta: 0.0003364,  loss absolute: 0.0025254, motion loss: 0.0264455 
+	iters: 800, epoch: 16 | loss delta: 0.0002496,  loss absolute: 0.0035836, motion loss: 0.0283077 
+	iters: 900, epoch: 16 | loss delta: 0.0002616,  loss absolute: 0.0025704, motion loss: 0.0331784 
+	iters: 1000, epoch: 16 | loss delta: 0.0003448,  loss absolute: 0.0039175, motion loss: 0.0396146 
+	iters: 1100, epoch: 16 | loss delta: 0.0031325,  loss absolute: 0.0051279, motion loss: 0.0267751 
+	iters: 1200, epoch: 16 | loss delta: 0.0004919,  loss absolute: 0.0039158, motion loss: 0.0279478 
+	iters: 1300, epoch: 16 | loss delta: 0.0002477,  loss absolute: 0.0029157, motion loss: 0.0272313 
+	iters: 1400, epoch: 16 | loss delta: 0.0002866,  loss absolute: 0.0040491, motion loss: 0.0341899 
+	iters: 1500, epoch: 16 | loss delta: 0.0002463,  loss absolute: 0.0031866, motion loss: 0.0293332 
+	iters: 1600, epoch: 16 | loss delta: 0.0002374,  loss absolute: 0.0033045, motion loss: 0.0213577 
+	iters: 1700, epoch: 16 | loss delta: 0.0002665,  loss absolute: 0.0030402, motion loss: 0.0284905 
+	iters: 1800, epoch: 16 | loss delta: 0.0002817,  loss absolute: 0.0039988, motion loss: 0.0405229 
+	iters: 1900, epoch: 16 | loss delta: 0.0002860,  loss absolute: 0.0039752, motion loss: 0.0401032 
+	iters: 2000, epoch: 16 | loss delta: 0.0004795,  loss absolute: 0.0037867, motion loss: 0.0270904 
+Epoch: 16 cost time: 1326.9429669380188
+Epoch: 16, Steps: 2057 | Train Loss: 0.0003226, 0.0033507, 0.0283185 Vali Loss: 0.0001656, 0.0020164, 0.0213950 Test Loss: 0.0001532, 0.0019483, 0.0208801
+EarlyStopping counter: 7 out of 10
+Updating learning rate to 3.0517578125e-09
+	iters: 100, epoch: 17 | loss delta: 0.0002471,  loss absolute: 0.0029068, motion loss: 0.0243022 
+	iters: 200, epoch: 17 | loss delta: 0.0003209,  loss absolute: 0.0024918, motion loss: 0.0187945 
+	iters: 300, epoch: 17 | loss delta: 0.0003389,  loss absolute: 0.0040491, motion loss: 0.0318777 
+	iters: 400, epoch: 17 | loss delta: 0.0002236,  loss absolute: 0.0026721, motion loss: 0.0231951 
+	iters: 500, epoch: 17 | loss delta: 0.0002727,  loss absolute: 0.0032090, motion loss: 0.0336714 
+	iters: 600, epoch: 17 | loss delta: 0.0002762,  loss absolute: 0.0040259, motion loss: 0.0255279 
+	iters: 700, epoch: 17 | loss delta: 0.0002373,  loss absolute: 0.0028733, motion loss: 0.0281304 
+	iters: 800, epoch: 17 | loss delta: 0.0002744,  loss absolute: 0.0038095, motion loss: 0.0294426 
+	iters: 900, epoch: 17 | loss delta: 0.0003605,  loss absolute: 0.0039105, motion loss: 0.0370934 
+	iters: 1000, epoch: 17 | loss delta: 0.0003762,  loss absolute: 0.0038717, motion loss: 0.0256052 
+	iters: 1100, epoch: 17 | loss delta: 0.0002660,  loss absolute: 0.0037540, motion loss: 0.0297282 
+	iters: 1200, epoch: 17 | loss delta: 0.0008092,  loss absolute: 0.0028357, motion loss: 0.0174399 
+	iters: 1300, epoch: 17 | loss delta: 0.0002398,  loss absolute: 0.0032151, motion loss: 0.0318053 
+	iters: 1400, epoch: 17 | loss delta: 0.0002150,  loss absolute: 0.0026562, motion loss: 0.0205729 
+	iters: 1500, epoch: 17 | loss delta: 0.0002835,  loss absolute: 0.0044251, motion loss: 0.0383660 
+	iters: 1600, epoch: 17 | loss delta: 0.0003673,  loss absolute: 0.0026236, motion loss: 0.0327876 
+	iters: 1700, epoch: 17 | loss delta: 0.0002522,  loss absolute: 0.0028135, motion loss: 0.0258588 
+	iters: 1800, epoch: 17 | loss delta: 0.0002507,  loss absolute: 0.0031924, motion loss: 0.0222674 
+	iters: 1900, epoch: 17 | loss delta: 0.0004768,  loss absolute: 0.0030444, motion loss: 0.0230514 
+	iters: 2000, epoch: 17 | loss delta: 0.0003486,  loss absolute: 0.0042834, motion loss: 0.0356810 
+Epoch: 17 cost time: 1341.8354218006134
+Epoch: 17, Steps: 2057 | Train Loss: 0.0003231, 0.0033604, 0.0283508 Vali Loss: 0.0001651, 0.0020158, 0.0214331 Test Loss: 0.0001533, 0.0019486, 0.0208803
+EarlyStopping counter: 8 out of 10
+Updating learning rate to 1.52587890625e-09
+	iters: 100, epoch: 18 | loss delta: 0.0002938,  loss absolute: 0.0031221, motion loss: 0.0275962 
+	iters: 200, epoch: 18 | loss delta: 0.0003507,  loss absolute: 0.0035595, motion loss: 0.0308983 
+	iters: 300, epoch: 18 | loss delta: 0.0004541,  loss absolute: 0.0033382, motion loss: 0.0302543 
+	iters: 400, epoch: 18 | loss delta: 0.0002980,  loss absolute: 0.0034737, motion loss: 0.0384691 
+	iters: 500, epoch: 18 | loss delta: 0.0003490,  loss absolute: 0.0041114, motion loss: 0.0251373 
+	iters: 600, epoch: 18 | loss delta: 0.0002495,  loss absolute: 0.0036695, motion loss: 0.0279073 
+	iters: 700, epoch: 18 | loss delta: 0.0002990,  loss absolute: 0.0028019, motion loss: 0.0279213 
+	iters: 800, epoch: 18 | loss delta: 0.0003492,  loss absolute: 0.0046459, motion loss: 0.0347693 
+	iters: 900, epoch: 18 | loss delta: 0.0002535,  loss absolute: 0.0035032, motion loss: 0.0292147 
+	iters: 1000, epoch: 18 | loss delta: 0.0002759,  loss absolute: 0.0035991, motion loss: 0.0354393 
+	iters: 1100, epoch: 18 | loss delta: 0.0003148,  loss absolute: 0.0037339, motion loss: 0.0335418 
+	iters: 1200, epoch: 18 | loss delta: 0.0002614,  loss absolute: 0.0025941, motion loss: 0.0250701 
+	iters: 1300, epoch: 18 | loss delta: 0.0002194,  loss absolute: 0.0028317, motion loss: 0.0223342 
+	iters: 1400, epoch: 18 | loss delta: 0.0002466,  loss absolute: 0.0030893, motion loss: 0.0324606 
+	iters: 1500, epoch: 18 | loss delta: 0.0002639,  loss absolute: 0.0033437, motion loss: 0.0349995 
+	iters: 1600, epoch: 18 | loss delta: 0.0002383,  loss absolute: 0.0033653, motion loss: 0.0286584 
+	iters: 1700, epoch: 18 | loss delta: 0.0003351,  loss absolute: 0.0051247, motion loss: 0.0437142 
+	iters: 1800, epoch: 18 | loss delta: 0.0002556,  loss absolute: 0.0029110, motion loss: 0.0288254 
+	iters: 1900, epoch: 18 | loss delta: 0.0002805,  loss absolute: 0.0042232, motion loss: 0.0342531 
+	iters: 2000, epoch: 18 | loss delta: 0.0002645,  loss absolute: 0.0042800, motion loss: 0.0384454 
+Epoch: 18 cost time: 1336.4037818908691
+Epoch: 18, Steps: 2057 | Train Loss: 0.0003218, 0.0033558, 0.0283584 Vali Loss: 0.0001675, 0.0020230, 0.0213886 Test Loss: 0.0001533, 0.0019487, 0.0208803
+EarlyStopping counter: 9 out of 10
+Updating learning rate to 7.62939453125e-10
+	iters: 100, epoch: 19 | loss delta: 0.0002931,  loss absolute: 0.0047546, motion loss: 0.0451654 
+	iters: 200, epoch: 19 | loss delta: 0.0002394,  loss absolute: 0.0030432, motion loss: 0.0262217 
+	iters: 300, epoch: 19 | loss delta: 0.0002542,  loss absolute: 0.0024090, motion loss: 0.0212759 
+	iters: 400, epoch: 19 | loss delta: 0.0002273,  loss absolute: 0.0024182, motion loss: 0.0245302 
+	iters: 500, epoch: 19 | loss delta: 0.0004886,  loss absolute: 0.0038786, motion loss: 0.0331030 
+	iters: 600, epoch: 19 | loss delta: 0.0004033,  loss absolute: 0.0032008, motion loss: 0.0238044 
+	iters: 700, epoch: 19 | loss delta: 0.0003521,  loss absolute: 0.0034047, motion loss: 0.0336102 
+	iters: 800, epoch: 19 | loss delta: 0.0002605,  loss absolute: 0.0038126, motion loss: 0.0299236 
+	iters: 900, epoch: 19 | loss delta: 0.0002345,  loss absolute: 0.0028632, motion loss: 0.0314230 
+	iters: 1000, epoch: 19 | loss delta: 0.0003740,  loss absolute: 0.0033955, motion loss: 0.0314319 
+	iters: 1100, epoch: 19 | loss delta: 0.0004455,  loss absolute: 0.0038098, motion loss: 0.0249880 
+	iters: 1200, epoch: 19 | loss delta: 0.0002304,  loss absolute: 0.0026311, motion loss: 0.0171651 
+	iters: 1300, epoch: 19 | loss delta: 0.0002615,  loss absolute: 0.0035532, motion loss: 0.0312584 
+	iters: 1400, epoch: 19 | loss delta: 0.0002677,  loss absolute: 0.0036392, motion loss: 0.0283571 
+	iters: 1500, epoch: 19 | loss delta: 0.0002513,  loss absolute: 0.0031031, motion loss: 0.0239290 
+	iters: 1600, epoch: 19 | loss delta: 0.0002355,  loss absolute: 0.0029429, motion loss: 0.0262439 
+	iters: 1700, epoch: 19 | loss delta: 0.0002565,  loss absolute: 0.0033248, motion loss: 0.0366134 
+	iters: 1800, epoch: 19 | loss delta: 0.0002734,  loss absolute: 0.0042604, motion loss: 0.0443858 
+	iters: 1900, epoch: 19 | loss delta: 0.0003123,  loss absolute: 0.0030774, motion loss: 0.0243407 
+	iters: 2000, epoch: 19 | loss delta: 0.0002515,  loss absolute: 0.0035380, motion loss: 0.0317675 
+Epoch: 19 cost time: 1328.133784532547
+Epoch: 19, Steps: 2057 | Train Loss: 0.0003219, 0.0033484, 0.0282751 Vali Loss: 0.0001675, 0.0020217, 0.0214733 Test Loss: 0.0001533, 0.0019487, 0.0208803
+EarlyStopping counter: 10 out of 10
+Early stopping
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+Testing Stage
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+Loading test data from: ./data/test.npz
+test dataset loaded:
+  X shape: (7409, 8, 17, 4)
+  y shape: (7409, 12, 17, 4)
+  X_mask shape: (7409, 8, 17)
+  y_mask shape: (7409, 12, 17)
+  ship_counts shape: (7409,)
+  global_ids shape: (7409, 17)
+  Number of samples: 7409
+  Average ship count: 5.16
+
+Loaded normalization parameters from: ./data/scaler_params.npy
+mask shape: (7409, 8, 17)
+mask shape: (7409, 12, 17)
+test dataset size: 7409
+loading model
 
 ==============================
 检测到程序异常崩溃！开始清理...
 ==============================
 Traceback (most recent call last):
-  File "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/main.py", line 278, in main
-    exp.train(setting)
-  File "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/exp/exp_forecasting_V3.py", line 170, in train
-    pred_deltas = self.model(
-  File "/mnt/stu/anaconda3/envs/zd_base/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1751, in _wrapped_call_impl
-    return self._call_impl(*args, **kwargs)
-  File "/mnt/stu/anaconda3/envs/zd_base/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1762, in _call_impl
-    return forward_call(*args, **kwargs)
-TypeError: Model.forward() got an unexpected keyword argument 'A_social_t'
+  File "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/main.py", line 284, in main
+    exp.test(setting, test=1)
+  File "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/exp/exp_forecasting_V3.py", line 266, in test
+    outputs_absolute = self.model.integrate(outputs_deltas, batch_x)
+  File "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/models/V3_0_0_ASTGNN.py", line 765, in integrate
+    outputs_absolute = last_known_pos + cumulative_deltas
+RuntimeError: The size of tensor a (2) must match the size of tensor b (5) at non-singleton dimension 3
 
-正在自动清理失败的运行目录: experiments/ship_traj_V3_0_0_ASTGNN_sl8_pl12_dm64_nh8_el4_dl4_df256_Exp/run_seed2024_20251122015010 ...
+正在自动清理失败的运行目录: experiments/ship_traj_V3_0_0_ASTGNN_sl8_pl12_dm64_nh8_el4_dl4_df256_Exp/run_seed2024_20251122064228 ...
 >> 清理完成 (垃圾文件已删除)。
 Traceback (most recent call last):
   File "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/main.py", line 353, in <module>
     main()
   File "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/main.py", line 347, in main
     raise e
-  File "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/main.py", line 278, in main
-    exp.train(setting)
-  File "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/exp/exp_forecasting_V3.py", line 170, in train
-    pred_deltas = self.model(
-  File "/mnt/stu/anaconda3/envs/zd_base/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1751, in _wrapped_call_impl
-    return self._call_impl(*args, **kwargs)
-  File "/mnt/stu/anaconda3/envs/zd_base/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1762, in _call_impl
-    return forward_call(*args, **kwargs)
-TypeError: Model.forward() got an unexpected keyword argument 'A_social_t'
+  File "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/main.py", line 284, in main
+    exp.test(setting, test=1)
+  File "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/exp/exp_forecasting_V3.py", line 266, in test
+    outputs_absolute = self.model.integrate(outputs_deltas, batch_x)
+  File "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/models/V3_0_0_ASTGNN.py", line 765, in integrate
+    outputs_absolute = last_known_pos + cumulative_deltas
+RuntimeError: The size of tensor a (2) must match the size of tensor b (5) at non-singleton dimension 3

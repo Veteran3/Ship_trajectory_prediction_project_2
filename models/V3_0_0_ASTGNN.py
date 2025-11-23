@@ -516,7 +516,7 @@ class Model(nn.Module):
 
         # -- 嵌入层 (已修正) --
         self.src_input_proj = nn.Linear(self.in_features, self.d_model)
-        self.trg_input_proj = nn.Linear(self.out_features, self.d_model)
+        self.trg_input_proj = nn.Linear(2, self.d_model)
         
         self.pos_encoder = TemporalPositionalEncoding(self.d_model, self.dropout)
         
@@ -609,7 +609,7 @@ class Model(nn.Module):
         
         outputs_deltas = [] # 收集预测的增量
         outputs_kin = []    # 收集预测的动力学特征 (SOG, cos_COG, sin_COG)
-        
+        outputs_all = []
         # 准备 "真值" (用于采样)
         if self.training:
             # (B, T_out, N, 2) -> (B, N, T_out, 2)
@@ -617,7 +617,7 @@ class Model(nn.Module):
 
         # 2. 循环 T_out 步
         for t in range(self.pred_len):
-            
+            # print('y_input_abs shape:', y_input_abs.shape)
             # 3. 嵌入 "绝对坐标" 序列
             dec_in = self.trg_input_proj(y_input_abs)
             L = dec_in.size(2)
@@ -656,6 +656,8 @@ class Model(nn.Module):
 
             outputs_deltas.append(pred_step_delta)
             outputs_kin.append(pred_step_kin)
+            outputs_all.append(pred_step_all)
+            
             # 7. [关键] "预定采样" 逻辑
             
             # (如果不在训练中) 或 (随机数 > 固定概率)
@@ -675,7 +677,7 @@ class Model(nn.Module):
             y_input_abs = torch.cat([y_input_abs, next_abs_pos], dim=2)
 
         # 9. 循环结束后, 收集所有 T_out 个 "预测的增量"
-        output = torch.cat(pred_step_all, dim=2) # [B, N, T_out, 5]
+        output = torch.cat(outputs_all, dim=2) # [B, N, T_out, 5]
         
         
         # 4. Reshape (不变)
