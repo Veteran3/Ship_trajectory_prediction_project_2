@@ -486,7 +486,7 @@ class Model(nn.Module):
         
         # ... (num_nodes, in_features, d_model, num_heads 等参数不变) ...
         self.num_nodes = args.num_ships
-        self.in_features = 5        # 这个地方应该改成5。COG被划分成了sin/cos两部分
+        self.in_features = 15        # 这个地方应该改成5。COG被划分成了sin/cos两部分
         self.out_features = 2 
         self.d_model = args.d_model
         self.num_heads = args.n_heads
@@ -548,9 +548,9 @@ class Model(nn.Module):
         """
         # ... (代码与上一条回复完全相同)
         last_known_pos = x_enc[:, -1:, :, :2] 
-        prev_future_pos = y_truth_abs[:, :-1, :, :]
+        prev_future_pos = y_truth_abs[:, :-1, :, :2]
         all_previous_positions = torch.cat([last_known_pos, prev_future_pos], dim=1)
-        y_truth_deltas = y_truth_abs - all_previous_positions
+        y_truth_deltas = y_truth_abs[..., :2] - all_previous_positions
         return y_truth_deltas
 
     def forward(self, x_enc, y_truth_abs, mask_x, mask_y, A_social_t=None, edge_features=None):
@@ -759,7 +759,7 @@ class Model(nn.Module):
             torch.Tensor: loss_delta (用于反向传播)
             torch.Tensor: loss_absolute (用于日志打印, .item() 获取)
         """
-        
+        y_truth_abs = y_truth_abs[..., :2]
         # 1. 准备掩码
         if mask_y.dtype == torch.float:
             mask_y_bool = mask_y.bool()

@@ -1,3 +1,5 @@
+from shapely.geometry import LineString, Point
+import pandas as pd
 import os
 import numpy as np
 import torch
@@ -5,6 +7,81 @@ from torch.utils.data import Dataset, DataLoader
 import warnings
 
 warnings.filterwarnings('ignore')
+
+# ===== 航道文件读取 =====
+def load_lane_table(path: str):
+    # 判断是否为execl或者csv文件：
+    ext = os.path.splitext(path)[1].lower()
+    print(path)
+    if ext in [".xlsx", ".xls"]:
+        df = pd.read_excel(path)
+    else:
+        df = pd.read_csv(path, encoding="utf-8")
+
+
+    df = df.rename(columns={
+        df.columns[0]: "lane_name",   # 名称
+        df.columns[1]: "lane_dir",    # NS / SN / EW / WE
+        df.columns[2]: "lane_role",   # center / upper / lower
+        df.columns[3]: "seq",         # 序号
+        df.columns[4]: "lon",         # 经度
+        df.columns[5]: "lat",         # 纬度
+    })
+    print("[Lane] load_lane_table OK, type(df) =", type(df))
+    print(df.head())
+    return df
+
+# ===== 构建航道几何 =====
+def build_lanes(df: pd.DataFrame):
+    lanes = {}
+    for (lane_name, lane_dir, lane_role), g in df.groupby(["lane_name", "lane_dir", "lane_role"]):
+        if str(lane_dir).upper() in ("EW", "WE"):
+            g = g.sort_values("lon")
+        else:
+            g = g.sort_values("lat")
+        coords = list(zip(g["lon"].values, g["lat"].values))
+        if len(coords) < 2:
+            continue
+        line = LineString(coords)
+        entry = lanes.setdefault(lane_name, {"dir": lane_dir})
+        entry[lane_role] = line
+    print("[Lane] build_lanes OK, lanes keys:", list(lanes.keys()))
+    return lanes
+
+# ===== 找最近航道 + 计算 s / d =====
+def find_nearest_lane(lanes, lon, lat):
+    p = Point(lon, lat)
+    best_name, best_entry, best_dist = None, None, 1e9
+    for name, info in lanes.items():
+        center = info.get("center", None)
+        if center is None:
+            continue
+        d = p.distance(center)
+        if d < best_dist:
+            best_dist = d
+            best_name = name
+            best_entry = info
+    return best_name, best_entry, best_dist
+
+def lane_features_for_point(p: Point, lane_entry):
+    line = lane_entry["center"]
+    s = line.project(p)
+    s_norm = s / max(line.length, 1e-6)
+
+    proj = line.interpolate(s)
+    d = p.distance(proj)
+
+    x0, y0 = proj.x, proj.y
+    s2 = min(s + 1.0, line.length)
+    ahead = line.interpolate(s2)
+    dx, dy = ahead.x - x0, ahead.y - y0
+    vx, vy = p.x - x0, p.y - y0
+    sign = np.sign(-dy * vx + dx * vy)
+    d_signed = d * sign
+
+    return s_norm, d_signed
+
+
 
 
 class ShipTrajectoryDataset(Dataset):
@@ -32,7 +109,7 @@ class ShipTrajectoryDataset(Dataset):
         scale=True,
         scale_type='standard',
         predict_position_only=True,
-        
+        lane_table_path=None
     ):
         """
         Args:
@@ -59,6 +136,14 @@ class ShipTrajectoryDataset(Dataset):
         # [新] 避碰规则参数 (TCPA/DCPA 阈值)
         self.tcpa_threshold = 300.0 # 例如 300秒 (5分钟)
         self.dcpa_threshold = 1000.0 # 例如 1000米
+
+        # 航道几何特征
+        self.lanes = None
+        if lane_table_path is not None:
+            df_lanes = load_lane_table(lane_table_path)
+            self.lanes = build_lanes(df_lanes)
+            print(f"[lane] Loaded lanes: {list(self.lanes.keys())}")
+
         
         # 序列长度
         if size is None:
@@ -337,11 +422,20 @@ class ShipTrajectoryDataset(Dataset):
         A_social = self._build_semantic_social_fusion_matrix(seq_x)
         edge_features = self._build_edge_features(seq_x, mask=seq_x_mask)
 
+        # ===== 新增：航道特征 [T_in,N,2] =====
+        if self.lanes is not None:
+            lane_feats = self._build_lane_features(seq_x, seq_x_mask)  # [T_in,N,2]
+        else:
+            lane_feats = np.zeros((seq_x.shape[0], seq_x.shape[1], 2), dtype=np.float32)
+
         seq_x = self._transform_features(seq_x, seq_x_mask)
         seq_y = self._transform_features(seq_y, seq_y_mask)
         
+        seq_x_final = np.concatenate([seq_x, lane_feats], axis=-1).astype(np.float32)
 
-        return seq_x, seq_y, seq_x_mask, seq_y_mask, ship_count, global_id, A_social, edge_features
+
+
+        return seq_x_final, seq_y, seq_x_mask, seq_y_mask, ship_count, global_id, A_social, edge_features
         # return seq_x, seq_y, seq_x_mask, seq_y_mask, ship_count, global_id, A_social
     
     def __len__(self):
@@ -749,7 +843,48 @@ class ShipTrajectoryDataset(Dataset):
             
         return edge_features.astype(np.float32)
 
+    def _build_lane_features(self, x_data, mask):
+        """
+        基于当前样本的物理经纬度 + 航道几何，构建 [T,N,2] 的 lane 特征：
+        [...,0]=s_norm(0~1), [...,1]=d_signed
+        x_data: [T,N,D]  当前是**归一化后的**4维特征
+        mask:   [T,N]    1=有效船舶
+        """
+        assert self.lanes is not None, "lanes not loaded"
 
+        T, N, D = x_data.shape
+        lane_s = np.zeros((T, N), dtype=np.float32)
+        lane_d = np.zeros((T, N), dtype=np.float32)
+
+        # 先反归一化到物理空间
+        x_phys = x_data.copy()
+        if self.scale_type == 'standard':
+            for f in range(min(D, self.num_features)):
+                x_phys[..., f] = x_phys[..., f] * self.std[f] + self.mean[f]
+        elif self.scale_type == 'minmax':
+            for f in range(min(D, self.num_features)):
+                x_phys[..., f] = x_phys[..., f] * (self.max_val[f] - self.min_val[f]) + self.min_val[f]
+
+        # 这里假设 feature 顺序是 [lon, lat, SOG, COG]
+        lon = x_phys[..., 0]
+        lat = x_phys[..., 1]
+
+        m = (mask.astype(bool) if mask is not None else np.ones((T, N), dtype=bool))
+
+        for t in range(T):
+            for n in range(N):
+                if not m[t, n]:
+                    continue
+                p = Point(lon[t, n], lat[t, n])
+                name, entry, _ = find_nearest_lane(self.lanes, lon[t, n], lat[t, n])
+                if entry is None:
+                    continue
+                s_norm, d_signed = lane_features_for_point(p, entry)
+                lane_s[t, n] = s_norm
+                lane_d[t, n] = d_signed
+
+        feats = np.stack([lane_s, lane_d], axis=-1)   # [T,N,2]
+        return feats
 
 
 

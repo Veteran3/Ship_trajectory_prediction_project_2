@@ -7,17 +7,13 @@ import numpy as np
 from utils.get_loss_function import get_loss_function
 
 """
-针对 V2.3.3 版本 ASTGNN 的改进版
+针对 V2.3.3 和 V3.0.0 版本 ASTGNN 的改进版
 
-重要改动点：
-增加物理结构
-模型输出:
-1. 原本2维输出： 位置增量 (delta_x, delta_y)
-2. 新增为5维输出：(delta_x, delta_y, SOG, cos_COG, sin_COG)
+放弃V3.0.0版本中的 运动损失 (motion loss) 计算，因为实验发现其效果无提升，且增加了计算复杂度。
+添加航道信息。
 
-loss损失项：
-原 loss = 位置增量 loss + 位置绝对损失
-新增 loss = 位置增量 loss + 位置绝对损失 + 速度损失 + 船舶运动损失
+对模型做 One-hot Embedding（next_lane） + Lane Direction（dir） 的修改
+
 
 """
 
@@ -488,8 +484,8 @@ class Model(nn.Module):
         
         # ... (num_nodes, in_features, d_model, num_heads 等参数不变) ...
         self.num_nodes = args.num_ships
-        self.in_features = 15        # 这个地方应该改成7。COG被划分成了sin/cos两部分， 又添加了两个航道特征
-        self.out_features = 5       # 3.0版本中，这个应该维 5， 添加了 SOG, cos_COG, sin_COG
+        self.in_features = 15        # 这个地方应该改成5。COG被划分成了sin/cos两部分
+        self.out_features = 2 
         self.d_model = args.d_model
         self.num_heads = args.n_heads
         self.num_layers = args.e_layers
@@ -516,7 +512,14 @@ class Model(nn.Module):
 
         # -- 嵌入层 (已修正) --
         self.src_input_proj = nn.Linear(self.in_features, self.d_model)
-        self.trg_input_proj = nn.Linear(2, self.d_model)
+        self.trg_input_proj = nn.Linear(self.out_features, self.d_model)
+        
+        # -- 新增航道嵌入 --
+        self.next_lane_proj = nn.Sequential(
+                                nn.Linear(8, self.d_model),
+                                nn.ReLU(),
+                            )
+        self.lane_dir_proj = nn.Linear(2, self.d_model)
         
         self.pos_encoder = TemporalPositionalEncoding(self.d_model, self.dropout)
         
@@ -550,11 +553,15 @@ class Model(nn.Module):
         """
         # ... (代码与上一条回复完全相同)
         last_known_pos = x_enc[:, -1:, :, :2] 
-        prev_future_pos = y_truth_abs[:, :-1, :, :]
+        prev_future_pos = y_truth_abs[:, :-1, :, :2]
         all_previous_positions = torch.cat([last_known_pos, prev_future_pos], dim=1)
-        y_truth_deltas = y_truth_abs - all_previous_positions
+        y_truth_deltas = y_truth_abs[..., :2] - all_previous_positions
         return y_truth_deltas
-    def forward(self, x_enc, y_truth_abs, mask_x, mask_y, A_social_t=None, edge_features=None):
+
+    def forward(self, x_enc, y_truth_abs, mask_x, mask_y, A_social_t=None, edge_features=None,
+                next_lane_onehot=None,  # [B, T_in, N, num_lanes]
+                lane_dir_feats=None     # [B, T_in, N, 2]
+                ):
         """
         前向传播 (已升级为 V4 - "固定预定采样" + "稳定反馈")
         
@@ -579,13 +586,36 @@ class Model(nn.Module):
         attn_mask_self = subsequent_mask(self.pred_len, device)
 
         x_enc_permuted = x_enc.permute(0, 2, 1, 3) 
-        # print('x_enc_permuted shape:', x_enc_permuted.shape)
         enc_in = self.src_input_proj(x_enc_permuted)
         
+        if next_lane_onehot is not None:
+            # 确保浮点类型
+            next_lane_onehot = next_lane_onehot.to(enc_in.device).float()
+            # [B, T_in, N, num_lanes] -> [B, N, T_in, num_lanes]
+            next_lane_perm = next_lane_onehot.permute(0, 2, 1, 3)
+
+            # 投影到 d_model
+            # 形状: [B, N, T_in, d_model]
+            next_lane_embed = self.next_lane_proj(next_lane_perm)
+
+            # 加到 encoder 输入上
+            enc_in = enc_in + next_lane_embed
+        if lane_dir_feats is not None:
+            lane_dir_feats = lane_dir_feats.to(enc_in.device).float()
+            # [B, T_in, N, 2] -> [B, N, T_in, 2]
+            lane_dir_perm = lane_dir_feats.permute(0, 2, 1, 3)
+
+            # 投影到 d_model
+            lane_dir_embed = self.lane_dir_proj(lane_dir_perm)  # [B, N, T_in, d_model]
+
+            # 叠加
+            enc_in = enc_in + lane_dir_embed
+
         # [关键] 使用 "可学习的" 节点嵌入
         enc_in = self.node_encoder(enc_in) 
         enc_in = self.pos_encoder(enc_in)  
 
+        
         # 2. Encoder (不变)
         memory = enc_in
         for layer in self.encoder_layers:
@@ -609,8 +639,7 @@ class Model(nn.Module):
         y_input_abs = x_enc_permuted[:, :, -1:, :2] # [B, N, 1, 2]
         
         outputs_deltas = [] # 收集预测的增量
-        outputs_kin = []    # 收集预测的动力学特征 (SOG, cos_COG, sin_COG)
-        outputs_all = []
+        
         # 准备 "真值" (用于采样)
         if self.training:
             # (B, T_out, N, 2) -> (B, N, T_out, 2)
@@ -618,7 +647,7 @@ class Model(nn.Module):
 
         # 2. 循环 T_out 步
         for t in range(self.pred_len):
-            # print('y_input_abs shape:', y_input_abs.shape)
+            
             # 3. 嵌入 "绝对坐标" 序列
             dec_in = self.trg_input_proj(y_input_abs)
             L = dec_in.size(2)
@@ -651,13 +680,8 @@ class Model(nn.Module):
             dec_out = self.decoder_norm(dec_out)
             
             # 6. 预测 "增量" (只取最后一个)
-            pred_step_all = self.output_proj(dec_out[:, :, -1:, :])
-            pred_step_delta = pred_step_all[:, :, :, :2]
-            pred_step_kin = pred_step_all[:, :, :, 2:]
-
+            pred_step_delta = self.output_proj(dec_out[:, :, -1:, :]) # [B, N, 1, 2]
             outputs_deltas.append(pred_step_delta)
-            outputs_kin.append(pred_step_kin)
-            outputs_all.append(pred_step_all)
             
             # 7. [关键] "预定采样" 逻辑
             
@@ -678,7 +702,7 @@ class Model(nn.Module):
             y_input_abs = torch.cat([y_input_abs, next_abs_pos], dim=2)
 
         # 9. 循环结束后, 收集所有 T_out 个 "预测的增量"
-        output = torch.cat(outputs_all, dim=2) # [B, N, T_out, 5]
+        output = torch.cat(outputs_deltas, dim=2) # [B, N, T_out, 2]
         
         
         # 4. Reshape (不变)
@@ -686,76 +710,118 @@ class Model(nn.Module):
         final_mask = mask_y.unsqueeze(-1).float()
         
         return output * final_mask
+
+
+    # def autoregressive_decode(self, memory, entity_padding_mask, temporal_padding_mask_enc, attn_mask_self, x_enc_permuted, x_static):
+    #     """
+    #     [已完善 - V3] 自回归解码
+    #     输入: 绝对坐标
+    #     输出: 增量
+    #     内部循环: 绝对坐标
+    #     """
+    #     device = memory.device
+        
+    #     # 1. 起始 Token 是 "绝对坐标"
+    #     y_input_abs = x_enc_permuted[:, :, -1:, :2] # [B, N, 1, 2]
+        
+    #     if x_static is not None:
+    #          static_embed = self.static_encoder(x_static.to(device))
+    #          static_embed_expanded = static_embed.unsqueeze(2)
+        
+    #     outputs_deltas = [] # 收集预测的增量
+        
+    #     for t in range(self.pred_len):
+            
+    #         # 2. 嵌入 "绝对坐标" 序列
+    #         dec_in = self.trg_input_proj(y_input_abs)
+    #         L = dec_in.size(2)
+            
+    #         if x_static is not None:
+    #             dec_in = dec_in + static_embed_expanded.repeat(1, 1, L, 1)
+    #         else:
+    #             dec_in = self.node_encoder(dec_in)
+                
+    #         dec_in = self.pos_encoder(dec_in)
+            
+    #         # 3. 准备掩码
+    #         temporal_mask_self = torch.zeros(
+    #             memory.size(0), self.num_nodes, L, dtype=torch.bool, device=device)
+    #         attn_mask_self_step = attn_mask_self[:, :L, :L]
+            
+    #         # 4. 运行 Decoder
+    #         dec_out = dec_in
+    #         for layer in self.decoder_layers:
+    #                 dec_out = layer(
+    #                     dec_out, memory,
+    #                     temporal_mask_self=temporal_mask_self,
+    #                     temporal_mask_cross=temporal_padding_mask_enc,
+    #                     entity_mask=entity_padding_mask,
+    #                     attn_mask_self=attn_mask_self_step
+    #                 )
+    #         dec_out = self.decoder_norm(dec_out)
+            
+    #         # 5. [关键] 预测 "增量" (只取最后一个)
+    #         pred_step_delta = self.output_proj(dec_out[:, :, -1:, :]) # [B, N, 1, 2]
+    #         outputs_deltas.append(pred_step_delta)
+            
+    #         # 6. [关键] 重建 "绝对坐标"
+    #         last_abs_pos = y_input_abs[:, :, -1:, :]
+    #         next_abs_pos = last_abs_pos + pred_step_delta # 计算 t+1 的绝对位置
+            
+    #         # 7. [关键] 将 "绝对坐标" 回填
+    #         y_input_abs = torch.cat([y_input_abs, next_abs_pos.detach()], dim=2) 
+
+    #     # 8. 拼接所有 "预测的增量"
+    #     output = torch.cat(outputs_deltas, dim=2) # [B, N, T_out, 2]
+    #     return output
+
+# [在 ShipASTGNN_Model 类内部]
+
     def loss(self, pred_deltas, y_truth_abs, x_enc, mask_y):
         """
-        封装的损失计算 (升级版: 位置 + 物理量)
-
+        封装的损失计算 (已升级)
+        
         Args:
-            pred_deltas (torch.Tensor): [B, T_out, N, 5]
-                模型输出的 5 维预测:
-                [Δlon, Δlat, SOG, cosCOG, sinCOG]
-
-            y_truth_abs (torch.Tensor): [B, T_out, N, 5]
-                真实的 5 维绝对量:
-                [lon, lat, SOG, cosCOG, sinCOG]
-
-            x_enc (torch.Tensor): [B, T_in, N, D_in]
-                历史轨迹 (前 2 维是绝对经纬度)
-
-            mask_y (torch.Tensor): [B, T_out, N]
-                掩码 (True = 有效)
-
+            pred_deltas (torch.Tensor): [B, T_out, N, 2] - 模型的 "增量" 输出
+            y_truth_abs (torch.Tensor): [B, T_out, N, 2] - 真实的 "绝对" 坐标
+            x_enc (torch.Tensor): [B, T_in, N, D_in] - 历史轨迹
+            mask_y (torch.Tensor): [B, T_out, N] - 掩码 (True=有效)
+        
         Returns:
-            loss_delta     : 经纬度增量损失 (Δlon/Δlat)
-            loss_absolute  : 绝对经纬度损失 (积分得到的)
-            loss_kin       : 物理量损失 (SOG, cosCOG, sinCOG)
+            torch.Tensor: loss_delta (用于反向传播)
+            torch.Tensor: loss_absolute (用于日志打印, .item() 获取)
         """
-
-        # 1. 掩码转 bool
+        y_truth_abs = y_truth_abs[..., :2]
+        # 1. 准备掩码
         if mask_y.dtype == torch.float:
             mask_y_bool = mask_y.bool()
         else:
             mask_y_bool = mask_y
 
-        # 2. 拆分位置部分和物理量部分
-        # 预测:
-        pred_deltas_pos = pred_deltas[..., :2]   # [B, T_out, N, 2]  Δlon, Δlat
-        pred_kin        = pred_deltas[..., 2:]   # [B, T_out, N, 3]  SOG, cos, sin
-
-        # 真实:
-        y_truth_abs_pos = y_truth_abs[..., :2]   # [B, T_out, N, 2]  lon, lat
-        y_truth_kin     = y_truth_abs[..., 2:]   # [B, T_out, N, 3]  SOG, cos, sin
-
-        # 3. 计算真实增量 (只用绝对经纬度)
-        #    注意: 这里给 _compute_truth_deltas 的也是 2 维经纬度
-        x_enc_pos = x_enc[..., :2]  # [B, T_in, N, 2]
-
-        y_truth_deltas = self._compute_truth_deltas(x_enc_pos, y_truth_abs_pos)
-        # y_truth_deltas: [B, T_out, N, 2]
-
-        # 4. 经纬度增量损失 (用于约束每步 Δlon/Δlat)
+        # 2. 计算 "真实增量"
+        y_truth_deltas = self._compute_truth_deltas(x_enc, y_truth_abs)
+        
+        # 3. 计算 "增量损失" (用于反向传播)
+        #    只在有效点上计算
         loss_delta = self.criterion(
-            pred_deltas_pos[mask_y_bool],
+            pred_deltas[mask_y_bool], 
             y_truth_deltas[mask_y_bool]
         )
-
-        # 5. 积分重建绝对经纬度 (沿用原来的 integrate，只用 Δlon/Δlat)
-        pred_absolute = self.integrate(pred_deltas_pos, x_enc_pos)  # [B, T_out, N, 2]
-
+        
+        # 4. 计算 "绝对损失" (用于日志)
+        
+        # 4.1 重建 "绝对预测"
+        pred_absolute = self.integrate(pred_deltas, x_enc)
+        
+        # 4.2 计算 "绝对损失"
+        #     只在有效点上计算
         loss_absolute = self.criterion(
             pred_absolute[mask_y_bool],
-            y_truth_abs_pos[mask_y_bool]
+            y_truth_abs[mask_y_bool]
         )
-
-        # 6. 运动学损失: SOG, cosCOG, sinCOG
-        #    直接在 3 维上算 MSE
-        loss_kin = self.criterion(
-            pred_kin[mask_y_bool],
-            y_truth_kin[mask_y_bool]
-        )
-
-        # 7. 返回三部分 loss，外面自行按权重组合
-        return loss_delta, loss_absolute, loss_kin
+        
+        # 5. 返回两个值
+        return loss_delta, loss_absolute
 
     def integrate(self, pred_deltas, x_enc_history):
         """
@@ -763,5 +829,5 @@ class Model(nn.Module):
         """
         last_known_pos = x_enc_history[:, -1:, :, :2].to(pred_deltas.device)
         cumulative_deltas = torch.cumsum(pred_deltas, dim=1)
-        outputs_absolute = last_known_pos + cumulative_deltas[..., :, :2]
+        outputs_absolute = last_known_pos + cumulative_deltas
         return outputs_absolute

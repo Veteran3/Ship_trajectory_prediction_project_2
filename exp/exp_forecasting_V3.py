@@ -7,7 +7,7 @@ import torch.nn as nn
 from torch import optim
 from torch.utils.data import DataLoader
 
-from data_provider.data_loader import ShipTrajectoryDataset
+from data_provider.data_loader_3 import ShipTrajectoryDataset
 
 from exp.exp_basic import Exp_Basic
 from utils.tools import EarlyStopping, adjust_learning_rate, visual, get_annealed_sampling_prob
@@ -43,7 +43,10 @@ class Exp_Forecasting(Exp_Basic):
             size=[args.seq_len, args.pred_len],
             num_ships=args.num_ships,
             num_features=args.num_features,
-            scale=args.scale
+            scale=args.scale,
+            lane_table_path=args.lane_table_path,
+            predict_position_only=args.predict_position_only,
+            scale_type=args.scale_type
         )
         print(f'{flag} dataset size: {len(data_set)}')
         data_loader = DataLoader(
@@ -73,16 +76,21 @@ class Exp_Forecasting(Exp_Basic):
                 mask_y = mask_y.to(self.device)
                 batch_y = batch_y.float().to(self.device)
                 
+                next_lane = vali_loader.get("next_lane_onehot", None)
+                lane_dir  = vali_loader.get("lane_dir_feats", None)
+
                 outputs_deltas = self.model(
                     x_enc=batch_x, 
                     y_truth_abs=None,
                     mask_x=mask_x, 
                     mask_y=mask_y,
                     A_social_t=A_social.to(self.device),
-                    edge_features=edge_features.to(self.device)
+                    edge_features=edge_features.to(self.device),
+                    next_lane_onehot=next_lane,
+                    lane_dir_feats=lane_dir
                 ) 
                 
-                loss, loss_absolute, loss_motion = self.model.loss(
+                loss, loss_absolute = self.model.loss(
                     pred_deltas=outputs_deltas,
                     y_truth_abs=batch_y,
                     x_enc=batch_x,
@@ -91,13 +99,13 @@ class Exp_Forecasting(Exp_Basic):
                 
                 total_loss.append(loss.item())
                 total_loss_absolute.append(loss_absolute.item())
-                total_loss_motion.append(loss_motion.item())
+                # total_loss_motion.append(loss_motion.item())
         
         total_loss = np.average(total_loss)
         total_loss_absolute = np.average(total_loss_absolute)
-        total_loss_motion = np.average(total_loss_motion)
+        # total_loss_motion = np.average(total_loss_motion)
         self.model.train()
-        return total_loss, total_loss_absolute, total_loss_motion
+        return total_loss, total_loss_absolute
     def train(self, setting):
         """
         训练模型
@@ -141,6 +149,9 @@ class Exp_Forecasting(Exp_Basic):
                 mask_y = mask_y.to(self.device)
                 batch_y = batch_y.float().to(self.device)
                 
+                next_lane = train_loader.get("next_lane_onehot", None)
+                lane_dir  = train_loader.get("lane_dir_feats", None)
+
                 if self.args.use_amp:
                     with torch.cuda.amp.autocast():
                         pred_deltas = self.model(
@@ -169,10 +180,12 @@ class Exp_Forecasting(Exp_Basic):
                         mask_x=mask_x,
                         mask_y=mask_y,
                         A_social_t=A_social.to(self.device),
-                        edge_features=edge_features.to(self.device)
+                        edge_features=edge_features.to(self.device),
+                        next_lane_onehot=next_lane,
+                        lane_dir_feats=lane_dir
                     )
                     
-                    loss, loss_absolute, loss_motion = self.model.loss(
+                    loss, loss_absolute = self.model.loss(
                         pred_deltas=pred_deltas,
                         y_truth_abs=batch_y,
                         x_enc=batch_x,
@@ -180,10 +193,12 @@ class Exp_Forecasting(Exp_Basic):
                     )
                     train_loss.append(loss.item())
                     train_loss_absolute.append(loss_absolute.item())
-                    train_loss_motion.append(loss_motion.item())
+                    # train_loss_motion.append(loss_motion.item())
                 
                 if (i + 1) % 100 == 0:
-                    print(f"\titers: {i + 1}, epoch: {epoch + 1} | loss delta: {loss.item():.7f},  loss absolute: {loss_absolute.item():.7f}, motion loss: {loss_motion.item():.7f} ")
+                    
+                    # print(f"\titers: {i + 1}, epoch: {epoch + 1} | loss delta: {loss.item():.7f},  loss absolute: {loss_absolute.item():.7f}, motion loss: {loss_motion.item():.7f} ")
+                    print(f"\titers: {i + 1}, epoch: {epoch + 1} | loss delta: {loss.item():.7f},  loss absolute: {loss_absolute.item():.7f}")
                     # ... (speed, left_time) ...
                 
                 if self.args.use_amp:
@@ -191,8 +206,10 @@ class Exp_Forecasting(Exp_Basic):
                     scaler.step(model_optim)
                     scaler.update()
                 else:
-                    back_loss = loss + 0.5 * loss_absolute + 0.5 * loss_motion # [修正]
+                    # back_loss = loss + 0.5 * loss_absolute + 0.5 * loss_motion # [修正]
+                    back_loss = loss + 0.5 * loss_absolute 
                     back_loss.backward()
+                    
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                     model_optim.step()
             
@@ -203,10 +220,17 @@ class Exp_Forecasting(Exp_Basic):
             train_loss_motion = np.average(train_loss_motion)
             
             # [修正] vali_loss 现在是 absolute loss
-            vali_loss, vali_loss_absolute, vali_loss_motion = self.vali(vali_loader)
-            test_loss, test_loss_absolute, test_loss_motion = self.vali(test_loader) # (假设 test 也用 vali 逻辑)
+            # vali_loss, vali_loss_absolute, vali_loss_motion = self.vali(vali_loader)
+            # test_loss, test_loss_absolute, test_loss_motion = self.vali(test_loader) # (假设 test 也用 vali 逻辑)
+
+            # [修正] vali_loss 现在是 absolute loss
+            vali_loss, vali_loss_absolute = self.vali(vali_loader)
+            test_loss, test_loss_absolute = self.vali(test_loader) # (假设 test 也用 vali 逻辑)
             
-            print(f"Epoch: {epoch + 1}, Steps: {train_steps} | Train Loss: {train_loss:.7f}, {train_loss_absolute:.7f}, {train_loss_motion:.7f} Vali Loss: {vali_loss:.7f}, {vali_loss_absolute:.7f}, {vali_loss_motion:.7f} Test Loss: {test_loss:.7f}, {test_loss_absolute:.7f}, {test_loss_motion:.7f}")
+
+            # print(f"Epoch: {epoch + 1}, Steps: {train_steps} | Train Loss: {train_loss:.7f}, {train_loss_absolute:.7f}, {train_loss_motion:.7f} Vali Loss: {vali_loss:.7f}, {vali_loss_absolute:.7f}, {vali_loss_motion:.7f} Test Loss: {test_loss:.7f}, {test_loss_absolute:.7f}, {test_loss_motion:.7f}")
+
+            print(f"Epoch: {epoch + 1}, Steps: {train_steps} | Train Loss: {train_loss:.7f}, {train_loss_absolute:.7f}, {train_loss_motion:.7f} Vali Loss: {vali_loss:.7f}, {vali_loss_absolute:.7f} Test Loss: {test_loss:.7f}, {test_loss_absolute:.7f}")
             
             # [修改] 早停现在使用 "run" 路径 (path)
             # early_stopping 监控的是 vali_loss_absolute
@@ -252,7 +276,8 @@ class Exp_Forecasting(Exp_Basic):
             for i, (batch_x, batch_y, mask_x, mask_y, ship_count, _, A_social, edge_features) in enumerate(test_loader):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float().to(self.device)
-                
+                # next_lane = test_loader.get("next_lane_onehot", None)
+                # lane_dir  = test_loader.get("lane_dir_feats", None)
                 # [修改] 确保 mask 和 y_truth_abs=None 被传递
                 outputs_deltas = self.model(
                     x_enc=batch_x,
@@ -260,17 +285,19 @@ class Exp_Forecasting(Exp_Basic):
                     mask_x=mask_x.to(self.device),
                     mask_y=mask_y.to(self.device),
                     A_social_t=A_social.to(self.device),
-                    edge_features=edge_features.to(self.device)
+                    edge_features=edge_features.to(self.device),
+                    # next_lane_onehot=next_lane,
+                    # lane_dir_feats=lane_dir
                 )
                 
                 outputs_absolute = self.model.integrate(outputs_deltas, batch_x)
                 
                 hists.append(batch_x[..., :2].detach().cpu().numpy())
                 preds.append(outputs_absolute.detach().cpu().numpy())
-                trues.append(batch_y.detach().cpu().numpy())
+                trues.append(batch_y[..., :2].detach().cpu().numpy())
                 masks_list.append(mask_y.detach().cpu().numpy())
         
-        scaler_file = r'data/scaler_params.npy'
+        scaler_file = r'data/60s/scaler_params.npy'
         scaler_params = np.load(scaler_file, allow_pickle=True).item()
         mean, std = scaler_params['mean'], scaler_params['std']
 
@@ -281,6 +308,10 @@ class Exp_Forecasting(Exp_Basic):
         preds = np.concatenate(preds, axis=0)
         trues = np.concatenate(trues, axis=0)
         masks = np.concatenate(masks_list, axis=0).astype(bool)
+
+        print('hists shape:', hists.shape)
+        print('preds shape:', preds.shape)
+        print('trues shape:', trues.shape)
 
         # 反标准化
         hists_invers = hists * std[:2] + mean[:2]

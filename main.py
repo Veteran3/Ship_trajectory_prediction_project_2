@@ -41,19 +41,20 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def get_args():
+def get_args(data):
     """
     获取命令行参数
     """
     parser = argparse.ArgumentParser(description='Ship Trajectory Prediction with Transformer')
     
     experiment_desc = """
+    v2.3.3版本
 ## 实验目的：
-3.0.0版本第一次实验
-
+30s数据集
+添加航道信息
+添加 next lane 信息
 
 """
-
     # ==================== 基本配置 ====================
     parser.add_argument('--task_name', type=str, default='ship_trajectory_forecast',
                         help='task name')
@@ -61,11 +62,11 @@ def get_args():
                         help='status: 1 for training, 0 for testing')
     parser.add_argument('--model_id', type=str, default='ship_traj',
                         help='model id')
-    parser.add_argument('--model', type=str, default='V3_0_0_ASTGNN',
+    parser.add_argument('--model', type=str, default='V2_3_3_ASTGNN',
                         help='model name')
     
     # ==================== 数据配置 ====================
-    parser.add_argument('--root_path', type=str, default='./data/',
+    parser.add_argument('--root_path', type=str, default=f'./data/{data}/',
                         help='root path of the data file')
     parser.add_argument('--train_data_path', type=str, default='train.npz',
                         help='train data file')
@@ -75,6 +76,8 @@ def get_args():
                         help='test data file')
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/',
                         help='location of model checkpoints')
+    parser.add_argument('--lane_table_path', type=str, default=r'/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/data/lane_table_with_next_lane.csv',
+                        help='path to the lane table file')
     
     # ==================== 数据预处理 ====================
     parser.add_argument('--seq_len', type=int, default=8,
@@ -94,7 +97,7 @@ def get_args():
                         help='only predict position (lon, lat), ignore COG and SOG')
     
     # ==================== 模型配置 ====================
-    parser.add_argument('--in_feature', type=int, default=5,
+    parser.add_argument('--in_feature', type=int, default=7,
                         help='input feature dimension')
     parser.add_argument('--d_model', type=int, default=64,
                         help='dimension of model')
@@ -187,12 +190,12 @@ def main():
     """
     主函数
     """
-
+    data = '30s'
     # 获取时间戳
     timestamp = time.strftime('%Y%m%d%H%M%S', time.localtime())
     
     # 获取参数
-    args, experiment_desc = get_args()
+    args, experiment_desc = get_args(data)
     
     # 设置随机种子
     set_seed(args.seed)
@@ -207,7 +210,7 @@ def main():
     print('=' * 80)
     
     # 构建实验设置名称
-    experiment_name = '{}_{}_sl{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_{}'.format(
+    experiment_name = '{}_{}_sl{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_{}_{}'.format(
         args.model_id,
         args.model,
         args.seq_len,
@@ -218,6 +221,7 @@ def main():
         args.d_layers,
         args.d_ff,
         args.des,
+        data
     )
     run_name = f"run_seed{args.seed}_{timestamp}"
 

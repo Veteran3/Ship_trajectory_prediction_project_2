@@ -1,3 +1,5 @@
+from shapely.geometry import LineString, Point
+import pandas as pd
 import os
 import numpy as np
 import torch
@@ -5,6 +7,103 @@ from torch.utils.data import Dataset, DataLoader
 import warnings
 
 warnings.filterwarnings('ignore')
+
+# ===== 航道文件读取 =====
+def load_lane_table(path: str):
+    # 判断是否为execl或者csv文件：
+    ext = os.path.splitext(path)[1].lower()
+    print(path)
+    if ext in [".xlsx", ".xls"]:
+        df = pd.read_excel(path)
+    else:
+        df = pd.read_csv(path, encoding="utf-8")
+
+
+    df = df.rename(columns={
+        df.columns[0]: "lane_name",   # 名称
+        df.columns[1]: "lane_dir",    # NS / SN / EW / WE
+        df.columns[2]: "lane_role",   # center / upper / lower
+        df.columns[3]: "seq",         # 序号
+        df.columns[4]: "lon",         # 经度
+        df.columns[5]: "lat",         # 纬度
+    })
+    print("[Lane] load_lane_table OK, type(df) =", type(df))
+    print(df.head())
+    return df
+
+# ===== 构建航道几何 =====
+def build_lanes(df: pd.DataFrame):
+    lanes = {}
+    for (lane_name, lane_dir, lane_role), g in df.groupby(["lane_name", "lane_dir", "lane_role"]):
+        if str(lane_dir).upper() in ("EW", "WE"):
+            g = g.sort_values("lon")
+        else:
+            g = g.sort_values("lat")
+        coords = list(zip(g["lon"].values, g["lat"].values))
+        if len(coords) < 2:
+            continue
+        line = LineString(coords)
+        entry = lanes.setdefault(lane_name, {"dir": lane_dir})
+        entry[lane_role] = line
+    print("[Lane] build_lanes OK, lanes keys:", list(lanes.keys()))
+    return lanes
+
+# ===== 找最近航道 + 计算 s / d =====
+def find_nearest_lane(lanes, lon, lat):
+    # print('Finding nearest lane for point:', lon, lat)
+    p = Point(lon, lat)
+    best_name, best_entry, best_dist = None, None, 1e9
+    for name, info in lanes.items():
+        center = info.get("center", None)
+        if center is None:
+            continue
+        d = p.distance(center)
+        if d < best_dist:
+            best_dist = d
+            best_name = name
+            best_entry = info
+    return best_name, best_entry, best_dist
+
+def lane_features_for_point(p: Point, lane_entry):
+    line = lane_entry["center"]
+    s = line.project(p)
+    s_norm = s / max(line.length, 1e-6)
+
+    proj = line.interpolate(s)
+    d = p.distance(proj)
+
+    x0, y0 = proj.x, proj.y
+    s2 = min(s + 1.0, line.length)
+    ahead = line.interpolate(s2)
+    dx, dy = ahead.x - x0, ahead.y - y0
+    vx, vy = p.x - x0, p.y - y0
+    sign = np.sign(-dy * vx + dx * vy)
+    d_signed = d * sign
+
+    return s_norm, d_signed
+
+def next_lanes_to_onehot(next_lanes, all_lanes=["EW1", "NS1", "NS2", "EW2", "WE1", "WE2", "SN1", "SN2"]):
+    """
+    将多个可能的下一个航道转换为 one-hot 编码。
+    如果有多个航道，分别在 one-hot 编码中标记。
+    """
+    # 创建一个全 0 的 one-hot 向量
+    onehot = np.zeros(len(all_lanes))
+    
+    # 如果 next_lanes 是一个单独的航道字符串，转换成列表
+    if isinstance(next_lanes, str):  
+        next_lanes = [next_lanes]  # 把单个航道变成列表
+    
+    # 遍历 next_lanes 中的所有航道
+    for lane in next_lanes:
+        if lane in all_lanes:
+            # 获取航道的索引并设置为 1
+            idx = all_lanes.index(lane)
+            onehot[idx] = 1
+        else:
+            print(f"[lane] Warning: lane {lane} not found in all_lanes")
+    
+    return onehot
 
 
 class ShipTrajectoryDataset(Dataset):
@@ -32,7 +131,7 @@ class ShipTrajectoryDataset(Dataset):
         scale=True,
         scale_type='standard',
         predict_position_only=True,
-        
+        lane_table_path=None
     ):
         """
         Args:
@@ -59,6 +158,16 @@ class ShipTrajectoryDataset(Dataset):
         # [新] 避碰规则参数 (TCPA/DCPA 阈值)
         self.tcpa_threshold = 300.0 # 例如 300秒 (5分钟)
         self.dcpa_threshold = 1000.0 # 例如 1000米
+
+        # 航道几何特征
+        self.lanes = None
+        if lane_table_path is not None:
+            self.df_lanes = load_lane_table(lane_table_path)
+
+            self.lanes = build_lanes(self.df_lanes)
+            # print(f'[lane] lane information: {self.lanes}')
+            # print(f"[lane] Loaded lanes: {list(self.lanes.keys())}")
+
         
         # 序列长度
         if size is None:
@@ -328,7 +437,7 @@ class ShipTrajectoryDataset(Dataset):
         seq_y_mask = self.mask_y[index]  # [T_out, N]
         ship_count = self.ship_counts[index]  # scalar
         global_id = self.global_ids[index]  # [N]
-
+       
         # 计算 social matrix 
         # A_social = self._build_social_graph(seq_x, mask=seq_x_mask)  # [T_in, N, N]
         # A_social_dec = self._build_social_graph(seq_y)
@@ -337,11 +446,53 @@ class ShipTrajectoryDataset(Dataset):
         A_social = self._build_semantic_social_fusion_matrix(seq_x)
         edge_features = self._build_edge_features(seq_x, mask=seq_x_mask)
 
+        # ===== 新增：航道特征 [T_in,N,2] =====
+        if self.lanes is not None:
+            lane_feats = self._build_lane_features(seq_x, seq_x_mask)  # [T_in,N,2]
+        else:
+            lane_feats = np.zeros((seq_x.shape[0], seq_x.shape[1], 2), dtype=np.float32)
+
+        next_lanes_feats = []
+        for t in range(seq_x.shape[0]):  # 遍历时间步
+            for n in range(seq_x.shape[1]):  # 遍历每一艘船
+                # 获取船舶的经纬度
+                lon = self.data_x[index, t, n, 0] 
+                lat = self.data_x[index, t, n, 1] 
+                
+                # print(f'scale information: ', self.mean, self.std)
+                lon = lon * self.std[0] + self.mean[0]  # 反归一化
+                lat = lat * self.std[1] + self.mean[1]  #
+                # print(f'lon: {lon}, lat: {lat}')
+                # 根据经纬度找到船舶所在的航道
+                lane_name = find_nearest_lane(self.lanes, lon, lat)
+                
+                # 获取该点的 `next_lanes` 信息
+                seq = self.get_seq_for_lane_point(lane_name, lon, lat)  # 获取该点的顺序编号
+
+                # print(f"Ship {n} at time {t}: lane_name={lane_name}")
+
+                next_lanes = self.get_next_lane(lane_name[0], seq)
+                # print(f'next lanes: ', next_lanes)
+                # 调试输出，查看是否正确获取
+                # print(f"Ship {n} at time {t}: lane_name={lane_name}, seq={seq}, next_lanes={next_lanes}")
+                next_lanes_onehot = next_lanes_to_onehot(next_lanes)
+                # print(f"Ship {n} at time {t}: next_lanes_onehot={next_lanes_onehot}")
+                next_lanes_feats.append(next_lanes_onehot)
+
+        # 将 next_lanes_feats 转为 numpy 数组或 one-hot 编码后拼接到 seq_x
+        next_lanes_feats = np.array(next_lanes_feats).reshape(seq_x.shape[0], seq_x.shape[1], -1)  # [T_in, N, ?]
+        # print('next_lanes_feats shape:', next_lanes_feats.shape)
+        # print('next lane feats:', next_lanes_feats[0,0,:])
         seq_x = self._transform_features(seq_x, seq_x_mask)
         seq_y = self._transform_features(seq_y, seq_y_mask)
         
+        # 将航道特征拼到 seq_x 上
+        seq_x_final = np.concatenate([seq_x, lane_feats, next_lanes_feats], axis=-1)  # 拼接后的 seq_x: [T_in, N, D]
 
-        return seq_x, seq_y, seq_x_mask, seq_y_mask, ship_count, global_id, A_social, edge_features
+
+
+
+        return seq_x_final, seq_y, seq_x_mask, seq_y_mask, ship_count, global_id, A_social, edge_features
         # return seq_x, seq_y, seq_x_mask, seq_y_mask, ship_count, global_id, A_social
     
     def __len__(self):
@@ -749,8 +900,134 @@ class ShipTrajectoryDataset(Dataset):
             
         return edge_features.astype(np.float32)
 
+    def _build_lane_features(self, x_data, mask):
+        """
+        基于当前样本的物理经纬度 + 航道几何，构建 [T,N,2] 的 lane 特征：
+        [...,0]=s_norm(0~1), [...,1]=d_signed
+        x_data: [T,N,D]  当前是**归一化后的**4维特征
+        mask:   [T,N]    1=有效船舶
+        """
+        assert self.lanes is not None, "lanes not loaded"
+
+        T, N, D = x_data.shape
+        lane_s = np.zeros((T, N), dtype=np.float32)
+        lane_d = np.zeros((T, N), dtype=np.float32)
+
+        # 先反归一化到物理空间
+        x_phys = x_data.copy()
+        if self.scale_type == 'standard':
+            for f in range(min(D, self.num_features)):
+                x_phys[..., f] = x_phys[..., f] * self.std[f] + self.mean[f]
+        elif self.scale_type == 'minmax':
+            for f in range(min(D, self.num_features)):
+                x_phys[..., f] = x_phys[..., f] * (self.max_val[f] - self.min_val[f]) + self.min_val[f]
+
+        # 这里假设 feature 顺序是 [lon, lat, SOG, COG]
+        lon = x_phys[..., 0]
+        lat = x_phys[..., 1]
+
+        m = (mask.astype(bool) if mask is not None else np.ones((T, N), dtype=bool))
+
+        for t in range(T):
+            for n in range(N):
+                if not m[t, n]:
+                    continue
+                p = Point(lon[t, n], lat[t, n])
+                name, entry, _ = find_nearest_lane(self.lanes, lon[t, n], lat[t, n])
+                if entry is None:
+                    continue
+                s_norm, d_signed = lane_features_for_point(p, entry)
+                lane_s[t, n] = s_norm
+                lane_d[t, n] = d_signed
+
+        feats = np.stack([lane_s, lane_d], axis=-1)   # [T,N,2]
+        return feats
+
+    def get_next_lane(self, lane_name, seq):
+        """
+        获取给定航道点的下一个可能航道列表
+        """
+        # print(f"Looking for next lanes for lane_name={lane_name}, seq={seq}")
+        lane_info = self.df_lanes[(self.df_lanes['lane_name'] == lane_name) & (self.df_lanes['seq'] == seq)]
+        
+        if not lane_info.empty:
+            next_lanes_str = lane_info['next_lane'].values[0]
+            
+            # 处理组合的航道字符串，把它拆分成多个航道
+            # 清理引号和空格，去掉字符串两边的方括号，替换掉单引号
+            next_lanes = next_lanes_str.strip("[]").replace("'", "").split(',')  # 清除多余的引号和空格
+            
+            # 去除每个航道名的空格
+            next_lanes = [lane.strip() for lane in next_lanes]
+            
+            # print(f"Found next lanes for {lane_name} at seq={seq}: {next_lanes}")
+            return next_lanes
+        else:
+            print(f"Warning: No next lanes found for lane_name={lane_name}, seq={seq}")
+            return []  # 返回空列表
+    def get_seq_for_lane_point(self, lane_name, lon, lat):
+        """
+        获取给定航道点的顺序编号 `seq`
+        根据船舶的经纬度 (lon, lat) 查找所属的航道点序号
+        """
+        # print('[lane name] , ' , lane_name)
+        # 在 self.lanes 中找到对应的航道
+        lane_data = self.lanes.get(lane_name[0], None)
+        
+        if lane_data is None:
+            print(f"Error: Lane {lane_name} not found in lanes_dict")
+            return -1  # 如果没有找到该航道，返回一个无效的 seq
+        
+        # 获取航道中心线
+        center_line = lane_data["center"]
+
+        # 使用 `shapely` 来找到点 (lon, lat) 在航道中的位置
+        point = Point(lon, lat)
+
+        # 初始化最小距离和对应的 seq
+        min_distance = float('inf')
+        seq = None
+
+        # 遍历航道中的每个点，计算与船舶的距离
+        for i, coord in enumerate(center_line.coords, 1):
+            # 计算船舶经纬度与当前航道点的距离
+            distance = point.distance(Point(coord))
+            
+            # 选择最小距离对应的点作为 seq
+            if distance < min_distance:
+                min_distance = distance
+                seq = i
+        
+        if seq is None:
+            print(f"Warning: No matching seq found for point ({lon}, {lat}) on lane {lane_name}")
+            return -1  # 如果没有找到合适的 seq，返回无效值
+
+        return seq
 
 
+    def find_nearest_lane(lon, lat, lanes):
+        """
+        给定船舶位置 (lon, lat)，计算其距离所有航道中心线的距离，
+        返回最近的航道名称。
+        """
+        p = Point(lon, lat)
+        
+        # 最小距离初始化为一个很大的值
+        best_name = None
+        best_dist = float("inf")
+
+        # 遍历所有航道，计算距离
+        for lane_name, lane_data in lanes.items():
+            center_line = lane_data["center"]
+            dist = p.distance(center_line)  # 计算点到航道中心线的距离
+            
+            if dist < best_dist:
+                best_dist = dist
+                best_name = lane_name
+
+        return best_name  # 返回最小距离的航道名称
+
+    
 
 
 def ship_collate_fn(batch):

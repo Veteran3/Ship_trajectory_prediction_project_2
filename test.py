@@ -24,11 +24,11 @@ def main():
                         help='status: 1 for training, 0 for testing')
     parser.add_argument('--model_id', type=str, default='ship_traj',
                         help='model id')
-    parser.add_argument('--model', type=str, default='V2_2_1_ASTGNN',
+    parser.add_argument('--model', type=str, default='V3_0_0_ASTGNN',
                         help='model name')
     
     # ==================== 数据配置 ====================
-    parser.add_argument('--root_path', type=str, default='./data/',
+    parser.add_argument('--root_path', type=str, default='./data/30s',
                         help='root path of the data file')
     parser.add_argument('--train_data_path', type=str, default='train.npz',
                         help='train data file')
@@ -38,6 +38,9 @@ def main():
                         help='test data file')
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/',
                         help='location of model checkpoints')
+    parser.add_argument('--lane_table_path', type=str, default=r'/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/data/lane_table_with_next_lane.csv',
+    # parser.add_argument('--lane_table_path', type=str, default=None,
+                        help='path to the lane table file')
     
     # ==================== 数据预处理 ====================
     parser.add_argument('--seq_len', type=int, default=8,
@@ -156,8 +159,8 @@ if __name__ == '__main__':
     main()
     """
     python test.py \
-    --model V2_3_2_ASTGNN \
-    --setting "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/experiments/ship_traj_V2_3_2_ASTGNN_sl8_pl12_dm64_nh8_el4_dl4_df256_Exp/run_seed2024_20251120072018" \
+    --model V3_0_0_ASTGNN \
+    --setting "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/experiments/ship_traj_V3_0_0_ASTGNN_sl8_pl12_dm64_nh8_el4_dl4_df256_Exp_30s/run_seed2024_20251126010513" \
     --seq_len 8 \
     --pred_len 12 \
     --d_model 64 \
