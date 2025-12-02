@@ -590,6 +590,8 @@ class Model(nn.Module):
         next_lane_onehot = x_enc[..., 7:15].to(device)   # 航道 one-hot 特征
         lane_dir_feats = x_enc[..., 15:17].to(device)   # 航道方向特征
 
+        # print('lane_dir_feats information:', lane_dir_feats[0, 0, 0, :])
+
         x_enc_permuted = seq_x.permute(0, 2, 1, 3) 
         enc_in = self.src_input_proj(x_enc_permuted)
         
@@ -783,12 +785,12 @@ class Model(nn.Module):
 
 # [在 ShipASTGNN_Model 类内部]
 
-    def loss(self, pred_deltas, y_truth_abs, x_enc, mask_y):
+    def loss(self, pred, y_truth_abs, x_enc, mask_y):
         """
         封装的损失计算 (已升级)
         
         Args:
-            pred_deltas (torch.Tensor): [B, T_out, N, 2] - 模型的 "增量" 输出
+            pred (torch.Tensor): [B, T_out, N, 2] - 模型的 "增量" 输出
             y_truth_abs (torch.Tensor): [B, T_out, N, 2] - 真实的 "绝对" 坐标
             x_enc (torch.Tensor): [B, T_in, N, D_in] - 历史轨迹
             mask_y (torch.Tensor): [B, T_out, N] - 掩码 (True=有效)
@@ -810,14 +812,14 @@ class Model(nn.Module):
         # 3. 计算 "增量损失" (用于反向传播)
         #    只在有效点上计算
         loss_delta = self.criterion(
-            pred_deltas[mask_y_bool], 
+            pred[mask_y_bool], 
             y_truth_deltas[mask_y_bool]
         )
         
         # 4. 计算 "绝对损失" (用于日志)
         
         # 4.1 重建 "绝对预测"
-        pred_absolute = self.integrate(pred_deltas, x_enc)
+        pred_absolute = self.integrate(pred, x_enc)
         
         # 4.2 计算 "绝对损失"
         #     只在有效点上计算
@@ -826,14 +828,14 @@ class Model(nn.Module):
             y_truth_abs[mask_y_bool]
         )
         
-        # 5. 返回两个值
+        # 5. 返回两个值    
         return loss_delta, loss_absolute
 
-    def integrate(self, pred_deltas, x_enc_history):
+    def integrate(self, pred, x_enc_history):
         """
         [公共方法] (保持不变, 它不需要 x_static)
         """
-        last_known_pos = x_enc_history[:, -1:, :, :2].to(pred_deltas.device)
-        cumulative_deltas = torch.cumsum(pred_deltas, dim=1)
+        last_known_pos = x_enc_history[:, -1:, :, :2].to(pred.device)
+        cumulative_deltas = torch.cumsum(pred, dim=1)
         outputs_absolute = last_known_pos + cumulative_deltas
         return outputs_absolute

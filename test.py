@@ -2,7 +2,7 @@ import argparse
 import torch
 import os
 import warnings
-from exp.exp_forecasting_V3 import Exp_Forecasting # 确保从正确的位置导入
+from exp.exp_forecasting_V4 import Exp_Forecasting # 确保从正确的位置导入
 
 # 忽略警告
 warnings.filterwarnings('ignore')
@@ -159,8 +159,8 @@ if __name__ == '__main__':
     main()
     """
     python test.py \
-    --model V3_2_0_ASTGNN \
-    --setting "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/experiments/ship_traj_V3_2_0_ASTGNN_sl8_pl12_dm64_nh8_el4_dl4_df256_Exp_30s/run_seed2024_20251128085629" \
+    --model V3_1_0_ASTGNN \
+    --setting "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/experiments/ship_traj_V3_1_0_ASTGNN_sl8_pl12_dm64_nh8_el4_dl4_df256_Exp_30s/run_seed2024_20251202013920" \
     --seq_len 8 \
     --pred_len 12 \
     --d_model 64 \

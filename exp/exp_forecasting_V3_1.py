@@ -94,7 +94,7 @@ class Exp_Forecasting(Exp_Basic):
                 mask_y = mask_y.to(self.device)
                 batch_y = batch_y.float().to(self.device)
 
-                outputs_deltas = self.model(
+                outputs = self.model(
                     x_enc=batch_x, 
                     y_truth_abs=None,
                     mask_x=mask_x, 
@@ -103,8 +103,8 @@ class Exp_Forecasting(Exp_Basic):
                     edge_features=edge_features.to(self.device),
                 ) 
                 
-                loss, loss_absolute, loss_curv = self.model.loss(
-                    pred_deltas=outputs_deltas,
+                loss, loss_absolute = self.model.loss(
+                    pred=outputs,
                     y_truth_abs=batch_y,
                     x_enc=batch_x,
                     mask_y=mask_y
@@ -112,13 +112,13 @@ class Exp_Forecasting(Exp_Basic):
                 
                 total_loss.append(loss.item())
                 total_loss_absolute.append(loss_absolute.item())
-                total_loss_curv.append(loss_curv.item())
+                # total_loss_curv.append(loss_curv.item())
         
         total_loss = np.average(total_loss)
         total_loss_absolute = np.average(total_loss_absolute)
-        total_loss_curv = np.average(total_loss_curv)
+        # total_loss_curv = np.average(total_loss_curv)
         self.model.train()
-        return total_loss, total_loss_absolute, total_loss_curv
+        return total_loss, total_loss_absolute,
     def train(self, setting):
         """
         训练模型
@@ -149,18 +149,17 @@ class Exp_Forecasting(Exp_Basic):
             iter_count = 0
             train_loss = []
             train_loss_absolute = [] # [修正] 应当监控 absolute loss
-            train_loss_motion = []   # [修正] 监控 motion loss
-            train_loss_curv = []     # [修正] 监控 curvature loss
+
             
             self.model.train()
             epoch_time = time.time()
 
-            if epoch < 5:
-                self.model.sampling_prob = 1.0  # 前10轮，强制使用真值 COG，教模型“什么样的航向对应哪条路”
-            elif epoch < 10:
-                self.model.sampling_prob = 0.8  # 逐渐引入自身预测
-            else:
-                self.model.sampling_prob = 0.5  # 后期模拟真实推理环境
+            # if epoch < 5:
+            #     self.model.sampling_prob = 1.0  # 前10轮，强制使用真值 COG，教模型“什么样的航向对应哪条路”
+            # elif epoch < 10:
+            #     self.model.sampling_prob = 0.8  # 逐渐引入自身预测
+            # else:
+            #     self.model.sampling_prob = 0.5  # 后期模拟真实推理环境
             
             for i, (batch_x, batch_y, mask_x, mask_y, ship_count, _, A_social, edge_features) in enumerate(train_loader):
                 iter_count += 1
@@ -187,12 +186,12 @@ class Exp_Forecasting(Exp_Basic):
                         )
                         
                         # [修正] 应当在混合损失上反向传播
-                        back_loss = loss + 0.5 * loss_absolute # (假设 lambda=0.5)
+                        back_loss = 0.5 *  loss + loss_absolute # (假设 lambda=0.5)
                         
                         train_loss.append(loss.item())
                         train_loss_absolute.append(loss_absolute.item())
                 else:
-                    pred_deltas = self.model(
+                    pred = self.model(
                         x_enc=batch_x,
                         y_truth_abs=batch_y[..., :2],
                         mask_x=mask_x,
@@ -201,20 +200,20 @@ class Exp_Forecasting(Exp_Basic):
                         edge_features=edge_features.to(self.device),
                     )
                     
-                    loss, loss_absolute, loss_curv = self.model.loss(
-                        pred_deltas=pred_deltas,
+                    loss, loss_absolute = self.model.loss(
+                        pred=pred,
                         y_truth_abs=batch_y,
                         x_enc=batch_x,
                         mask_y=mask_y
                     )
                     train_loss.append(loss.item())
                     train_loss_absolute.append(loss_absolute.item())
-                    train_loss_curv.append(loss_curv.item())
+                    # train_loss_curv.append(loss_curv.item())
                 
                 if (i + 1) % 100 == 0:
                     
                     # print(f"\titers: {i + 1}, epoch: {epoch + 1} | loss delta: {loss.item():.7f},  loss absolute: {loss_absolute.item():.7f}, motion loss: {loss_motion.item():.7f} ")
-                    print(f"\titers: {i + 1}, epoch: {epoch + 1} | loss delta: {loss.item():.7f},  loss absolute: {loss_absolute.item():.7f}, curvature loss: {loss_curv.item():.7f}")
+                    print(f"\titers: {i + 1}, epoch: {epoch + 1} | loss delta: {loss.item():.7f},  loss absolute: {loss_absolute.item():.7f}")
                     # ... (speed, left_time) ...
                 
                 if self.args.use_amp:
@@ -222,9 +221,7 @@ class Exp_Forecasting(Exp_Basic):
                     scaler.step(model_optim)
                     scaler.update()
                 else:
-                    w_dir = 0.0 if epoch < 5 else 0.1
-                    # back_loss = loss + 0.5 * loss_absolute + 0.5 * loss_motion # [修正]
-                    back_loss = loss + 0.5 * loss_absolute  + w_dir * loss_curv # [修正]
+                    back_loss = 0.5 * loss +  loss_absolute 
                     back_loss.backward()
                     
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
@@ -234,20 +231,19 @@ class Exp_Forecasting(Exp_Basic):
             print(f"Epoch: {epoch + 1} cost time: {time.time() - epoch_time}")
             train_loss = np.average(train_loss)
             train_loss_absolute = np.average(train_loss_absolute)
-            train_loss_curv = np.average(train_loss_curv)
             
             # [修正] vali_loss 现在是 absolute loss
             # vali_loss, vali_loss_absolute, vali_loss_motion = self.vali(vali_loader)
             # test_loss, test_loss_absolute, test_loss_motion = self.vali(test_loader) # (假设 test 也用 vali 逻辑)
 
             # [修正] vali_loss 现在是 absolute loss
-            vali_loss, vali_loss_absolute, vali_loss_curv = self.vali(vali_loader)
-            test_loss, test_loss_absolute, test_loss_curv = self.vali(test_loader) # (假设 test 也用 vali 逻辑)
+            vali_loss, vali_loss_absolute = self.vali(vali_loader)
+            test_loss, test_loss_absolute = self.vali(test_loader) # (假设 test 也用 vali 逻辑)
             
 
             # print(f"Epoch: {epoch + 1}, Steps: {train_steps} | Train Loss: {train_loss:.7f}, {train_loss_absolute:.7f}, {train_loss_motion:.7f} Vali Loss: {vali_loss:.7f}, {vali_loss_absolute:.7f}, {vali_loss_motion:.7f} Test Loss: {test_loss:.7f}, {test_loss_absolute:.7f}, {test_loss_motion:.7f}")
 
-            print(f"Epoch: {epoch + 1}, Steps: {train_steps} | Train Loss: {train_loss:.7f}, {train_loss_absolute:.7f}, {train_loss_curv:.7f} Vali Loss: {vali_loss:.7f}, {vali_loss_absolute:.7f}, {vali_loss_curv:.7f} Test Loss: {test_loss:.7f}, {test_loss_absolute:.7f}, {test_loss_curv:.7f}")
+            print(f"Epoch: {epoch + 1}, Steps: {train_steps} | Train Loss: {train_loss:.7f}, {train_loss_absolute:.7f}, Vali Loss: {vali_loss:.7f}, {vali_loss_absolute:.7f}Test Loss: {test_loss:.7f}, {test_loss_absolute:.7f}")
             
             # [修改] 早停现在使用 "run" 路径 (path)
             # early_stopping 监控的是 vali_loss_absolute

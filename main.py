@@ -3,7 +3,7 @@ import os
 import torch
 import random
 import numpy as np
-from exp.exp_forecasting_V4 import Exp_Forecasting
+from exp.exp_forecasting_V3_1 import Exp_Forecasting
 import time
 import json
 import shutil     # [新] 用于删除文件夹
@@ -50,8 +50,9 @@ def get_args(data):
     experiment_desc = """
     
 ## 实验目的：
-v3.2.1  略微大概，尤其是针对损失函数以及预定采样策略
+v3.1.0.1
 
+Loss = loss_delta * 0.5  + loss_absolute 
 
 """
     # ==================== 基本配置 ====================
@@ -61,7 +62,7 @@ v3.2.1  略微大概，尤其是针对损失函数以及预定采样策略
                         help='status: 1 for training, 0 for testing')
     parser.add_argument('--model_id', type=str, default='ship_traj',
                         help='model id')
-    parser.add_argument('--model', type=str, default='V3_2_1_ASTGNN',
+    parser.add_argument('--model', type=str, default='V3_1_0_ASTGNN',
                         help='model name')
     
     # ==================== 数据配置 ====================
