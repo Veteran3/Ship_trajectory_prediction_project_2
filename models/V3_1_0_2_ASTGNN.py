@@ -722,19 +722,27 @@ class Model(nn.Module):
             pred_deltas[mask_y_bool], 
             y_truth_deltas[mask_y_bool]
         )
-        
-        back_loss = loss_delta + 0.1 * loss_absolute 
+        pred_start = pred[:, 0, :, :]        
+        truth_start = y_truth_abs[:, 0, :, :]
+
+        # 2. 处理 Mask：如果你的 mask 是 [Batch, T, N]，也要切出 t=0
+        # 假设 mask_y_bool 是 [Batch, T, N]
+        mask_start = mask_y_bool[:, 0, :]   # 形状 [Batch, N]
+
+        # 3. 再用 Mask 过滤有效点计算 Loss
+        # 这会自动把 valid 的点选出来计算，不用担心维度问题
+        loss_start = self.criterion(
+            pred_start[mask_start], 
+            truth_start[mask_start]
+        )
+
+        back_loss = loss_delta + 0.5 * loss_absolute + loss_start
 
         
         # 返回 total 用于反向传播，返回 absolute 用于显示指标
         if (iter is not None and epoch is not None) and (iter + 1) % 100 == 0:
-            print(f"\titers: {iter + 1}, epoch: {epoch + 1} |  Loss_Delta: {loss_delta.item():.7f}, Loss_Abs: {loss_absolute.item():.7f}")
+            print(f"\titers: {iter + 1}, epoch: {epoch + 1} |  Loss_Delta: {loss_delta.item():.4f}, Loss_Abs: {loss_absolute.item():.4f}, Loss_Start: {loss_start.item():.4f}")
 
-        # 3. 总 Loss 组合 (保持你的逻辑: delta + 0.5 * abs)
-        # 注意：这里你可以根据效果调整权重，比如绝对坐标更重要可以加大 abs 的权重
-        # loss_total = loss_delta + 0.5 * loss_absolute
-        
-        # 返回 total 用于反向传播，返回 absolute 用于显示指标
         return back_loss, loss_absolute
 
     def integrate(self, pred_deltas, x_enc_history):

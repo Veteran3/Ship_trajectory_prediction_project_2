@@ -9,7 +9,9 @@ from utils.get_loss_function import get_loss_function
 """
 V3.1.0 微修改
 
-输出改为 直接预测经纬度，而非增量
+修改Loss函数：
+1. 使用 Huber Loss 作为绝对坐标损失
+
 
 """
 
@@ -692,50 +694,84 @@ class Model(nn.Module):
     def loss(self, pred, y_truth_abs, x_enc, mask_y, iter=None, epoch=None):
         """
         修改后的 Loss 计算：
-        输入 pred_absolute 是绝对坐标。
-        我们需要：
-        1. 计算 loss_abs (直接对比)
-        2. 反算出 pred_deltas，计算 loss_delta
+        策略：预测绝对坐标 (Absolute Prediction)
+        重点：
+        1. 强力锚定起始点 (High Weight on Start) -> 解决平移
+        2. 绝对位置为主 (Main Task)
+        3. 增量为辅 (Smoothness Regularization)
         """
         y_truth_abs = y_truth_abs[..., :2]
         
+        # 确保 mask 是布尔类型
         if mask_y.dtype == torch.float:
             mask_y_bool = mask_y.bool()
         else:
             mask_y_bool = mask_y
 
-        # 1. 计算 "绝对损失" (Loss_Abs)
-        #    现在 pred_absolute 直接就是模型输出，无需积分
-        loss_absolute = self.criterion(
+        # -----------------------------------------------------------
+        # 1. 计算 "绝对损失" (Loss_Abs) - 主任务
+        # -----------------------------------------------------------
+        # 建议：如果 self.criterion 是 MSELoss，且 Loss 卡在 0.0020，
+        # 强烈建议在此处临时换用 F.smooth_l1_loss 或 F.l1_loss
+        # loss_absolute = torch.nn.functional.smooth_l1_loss(
+        #     pred[mask_y_bool], 
+        #     y_truth_abs[mask_y_bool], 
+        #     beta=0.1
+        # )
+        loss_absolute_MSE = self.criterion(
             pred[mask_y_bool],
             y_truth_abs[mask_y_bool]
         )
 
-        # 2. 计算 "增量损失" (Loss_Delta)
+        absolute_loss_F = get_loss_function('huber')
+        loss_absolute = absolute_loss_F(
+            pred[mask_y_bool],
+            y_truth_abs[mask_y_bool]
+        )
+
+        # -----------------------------------------------------------
+        # 2. 计算 "增量损失" (Loss_Delta) - 辅助平滑项
+        # -----------------------------------------------------------
         # 2.1 获取真实增量
         y_truth_deltas = self._compute_truth_deltas(x_enc, y_truth_abs)
         
-        # 2.2 [关键] 从预测的绝对坐标中，反向差分计算出 "预测增量"
+        # 2.2 从预测的绝对坐标中，反向差分计算出 "预测增量"
         pred_deltas = self._compute_pred_deltas(x_enc, pred)
         
         loss_delta = self.criterion(
             pred_deltas[mask_y_bool], 
             y_truth_deltas[mask_y_bool]
         )
-        
-        back_loss = loss_delta + 0.1 * loss_absolute 
 
+        # -----------------------------------------------------------
+        # 3. 计算 "锚点损失" (Loss_Start) - 消除平移的关键
+        # -----------------------------------------------------------
+        # 取第 0 帧
+        pred_start = pred[:, 0, :, :]        
+        truth_start = y_truth_abs[:, 0, :, :]
+
+        # 处理 Mask: 切出 t=0 时刻的 mask [Batch, N]
+        mask_start = mask_y_bool[:, 0, :]   
+
+        # 只计算 valid 点
+        loss_start = self.criterion(
+            pred_start[mask_start], 
+            truth_start[mask_start]
+        )
+
+        # -----------------------------------------------------------
+        # 4. 总 Loss 加权求和
+        # -----------------------------------------------------------
+        # w_abs=1.0   : 既然是预测绝对坐标，这个必须是主力
+        # w_delta=0.5 : 降权，作为正则项保证平滑
+        # w_start=10.0: 重权，强制第一步必须对齐，死死咬住真值
+        back_loss = 1.0 * loss_absolute + 0.5 * loss_delta + 10.0 * loss_start
         
-        # 返回 total 用于反向传播，返回 absolute 用于显示指标
+        # 打印监控 (便于观察各项 Loss 变化)
         if (iter is not None and epoch is not None) and (iter + 1) % 100 == 0:
-            print(f"\titers: {iter + 1}, epoch: {epoch + 1} |  Loss_Delta: {loss_delta.item():.7f}, Loss_Abs: {loss_absolute.item():.7f}")
+            print(f"\titers: {iter + 1}, epoch: {epoch + 1} | Total: {back_loss.item():.7f} | Abs: {loss_absolute_MSE.item():.7f}, Delta: {loss_delta.item():.7f}, Start: {loss_start.item():.7f}")
 
-        # 3. 总 Loss 组合 (保持你的逻辑: delta + 0.5 * abs)
-        # 注意：这里你可以根据效果调整权重，比如绝对坐标更重要可以加大 abs 的权重
-        # loss_total = loss_delta + 0.5 * loss_absolute
-        
-        # 返回 total 用于反向传播，返回 absolute 用于显示指标
-        return back_loss, loss_absolute
+        return back_loss, loss_absolute_MSE
 
     def integrate(self, pred_deltas, x_enc_history):
         """

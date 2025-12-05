@@ -2,7 +2,7 @@ import argparse
 import torch
 import os
 import warnings
-from exp.exp_forecasting_V4 import Exp_Forecasting # 确保从正确的位置导入
+from exp.exp_forecasting_VV1 import Exp_Forecasting # 确保从正确的位置导入
 
 # 忽略警告
 warnings.filterwarnings('ignore')
@@ -28,7 +28,7 @@ def main():
                         help='model name')
     
     # ==================== 数据配置 ====================
-    parser.add_argument('--root_path', type=str, default='./data/30s',
+    parser.add_argument('--root_path', type=str, default='./data/30s_20_30',
                         help='root path of the data file')
     parser.add_argument('--train_data_path', type=str, default='train.npz',
                         help='train data file')
@@ -43,11 +43,11 @@ def main():
                         help='path to the lane table file')
     
     # ==================== 数据预处理 ====================
-    parser.add_argument('--seq_len', type=int, default=8,
+    parser.add_argument('--seq_len', type=int, default=20,
                         help='input sequence length')
-    parser.add_argument('--pred_len', type=int, default=12,
+    parser.add_argument('--pred_len', type=int, default=30,
                         help='prediction sequence length')
-    parser.add_argument('--num_ships', type=int, default=17,
+    parser.add_argument('--num_ships', type=int, default=13,
                         help='number of ships per frame')
     parser.add_argument('--num_features', type=int, default=4,
                         help='number of features (lon, lat, cog, sog)')
@@ -64,9 +64,9 @@ def main():
                         help='dimension of model')
     parser.add_argument('--n_heads', type=int, default=8,
                         help='number of attention heads')
-    parser.add_argument('--e_layers', type=int, default=4,
+    parser.add_argument('--e_layers', type=int, default=1,
                         help='number of encoder layers')
-    parser.add_argument('--d_layers', type=int, default=4,
+    parser.add_argument('--d_layers', type=int, default=1,
                         help='number of decoder layers')
     parser.add_argument('--d_ff', type=int, default=256,
                         help='dimension of feed-forward network')
@@ -159,8 +159,8 @@ if __name__ == '__main__':
     main()
     """
     python test.py \
-    --model V3_1_0_ASTGNN \
-    --setting "/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/experiments/ship_traj_V3_1_0_ASTGNN_sl8_pl12_dm64_nh8_el4_dl4_df256_Exp_30s/run_seed2024_20251202013920" \
+    --model V4_0_0_ASTGNN \
+    --setting "/mnt/stu/ZhangDong/2_PhD_projects/0_1_My_model/experiments/ship_traj_V4_0_0_ASTGNN_sl20_pl30_dm64_nh8_el1_dl1_df256_Exp_30s/run_seed2024_20251204050328" \
     --seq_len 8 \
     --pred_len 12 \
     --d_model 64 \

@@ -7,25 +7,12 @@ import torch.nn as nn
 from torch import optim
 from torch.utils.data import DataLoader
 
-"""
-dataloader 版本选取指南：
-v1 : 最基础版本，仅包含轨迹数据
-v2 : 添加social attention
-v3 : 添加航道特征
-v4 : 添加下一帧航道位置特征
-v5 : 修复航道特征
-
-"""
-
-"""
-此v4版本对应v3.2.1模型。loss为四个
-"""
-
-
-
 from exp.exp_basic import Exp_Basic
-from utils.tools import EarlyStopping, adjust_learning_rate, visual, get_annealed_sampling_prob
+from utils.tools import EarlyStopping, visual
 from utils.metrics import metric, ADE, FDE
+
+# 引入 ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 warnings.filterwarnings('ignore')
 
@@ -35,27 +22,18 @@ class Exp_Forecasting(Exp_Basic):
         super(Exp_Forecasting, self).__init__(args)
     
     def _build_model(self):
-        # ... (此方法保持不变) ...
         model = self.model_dict[self.args.model].Model(self.args).float()
         if self.args.use_multi_gpu and self.args.use_gpu:
             model = nn.DataParallel(model, device_ids=self.args.device_ids)
         return model
     
-    
-    
     def _select_optimizer(self):
-        # ... (此方法保持不变) ...
         model_optim = optim.Adam(self.model.parameters(), lr=self.args.learning_rate)
         return model_optim
 
     def vali(self, vali_loader):
-        # ... (此方法保持不变, 它不处理路径) ...
-        
-        total_loss_list = []
+        total_loss = []
         total_loss_absolute = []
-        total_loss_intent = []
-        total_loss_delta = []
-
         self.model.eval()
         with torch.no_grad():
             for i, (batch_x, batch_y, mask_x, mask_y, ship_count, _, A_social, edge_features) in enumerate(vali_loader):
@@ -64,7 +42,7 @@ class Exp_Forecasting(Exp_Basic):
                 mask_y = mask_y.to(self.device)
                 batch_y = batch_y.float().to(self.device)
 
-                outputs_deltas, intent_vectors = self.model(
+                outputs = self.model(
                     x_enc=batch_x, 
                     y_truth_abs=None,
                     mask_x=mask_x, 
@@ -73,37 +51,29 @@ class Exp_Forecasting(Exp_Basic):
                     edge_features=edge_features.to(self.device),
                 ) 
                 
-                total_loss, loss_delta, loss_abs, loss_intent, w_intent= self.model.loss(
-                    pred_deltas=outputs_deltas,
+                loss, loss_absolute,_ = self.model.loss(
+                    pred=outputs,
                     y_truth_abs=batch_y,
                     x_enc=batch_x,
-                    mask_y=mask_y,
-                    intent_vectors=intent_vectors,
+                    mask_y=mask_y
                 )
                 
-                total_loss_list.append(loss_delta.item())
-                total_loss_absolute.append(loss_abs.item())
-                total_loss_intent.append(loss_intent.item())
-                total_loss_delta.append(loss_delta.item())
+                total_loss.append(loss.item())
+                total_loss_absolute.append(loss_absolute.item())
         
-        total_loss = np.average(total_loss_list)
+        total_loss = np.average(total_loss)
         total_loss_absolute = np.average(total_loss_absolute)
-        total_loss_intent = np.average(total_loss_intent)
-        total_loss_delta = np.average(total_loss_delta)
         self.model.train()
-        return total_loss, total_loss_delta, total_loss_absolute, total_loss_intent
+        return total_loss, total_loss_absolute
+
     def train(self, setting):
         """
-        训练模型
-        [已修改] "setting" 现在是 "Experiment/Run" 路径
+        训练模型 - 支持接续训练和保存优化器状态
         """
         train_data, train_loader = self._get_data(flag='train')
         vali_data, vali_loader = self._get_data(flag='val')
         test_data, test_loader = self._get_data(flag='test')
         
-        # [修改] path 现在是唯一的 "运行" 路径
-        # setting = "Experiment_Name/Run_Name"
-        # path = "./checkpoints/Experiment_Name/Run_Name"
         ckpt_path = os.path.join(setting, 'checkpoints')
         if not os.path.exists(ckpt_path):
             os.makedirs(ckpt_path, exist_ok=True)
@@ -111,30 +81,72 @@ class Exp_Forecasting(Exp_Basic):
         time_now = time.time()
         
         train_steps = len(train_loader)
-        early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
+        
+        # 1. 初始化优化器
         model_optim = self._select_optimizer()
+        
+        # 2. [修改] 初始化 LR Scheduler (ReduceLROnPlateau)
+        scheduler = ReduceLROnPlateau(
+            model_optim,
+            mode='min',
+            factor=0.5,      # 每次减半
+            patience=3,      # 连续 3 轮 vali loss 不下降才减
+            min_lr=1e-6,
+            # verbose=True
+        )
+
+        # 3. [新增] 接续训练逻辑 (Resume)
+        start_epoch = 0
+        best_vali_loss = float('inf')
+        
+        # 检查是否需要 Resume (依据 args.exp_setting 是否有值，或者 args.resume 标记)
+        # 这里假设如果传入的 setting 对应的目录下已经有 checkpoint，且 args.resume 为 True 或 exp_setting 非空，则尝试加载
+        resume_checkpoint_path = os.path.join(ckpt_path, 'checkpoint.pth')
+        
+        if (hasattr(self.args, 'exp_setting') and self.args.exp_setting) or (hasattr(self.args, 'resume') and self.args.resume):
+            if os.path.exists(resume_checkpoint_path):
+                print(f"Resuming training from {resume_checkpoint_path}")
+                checkpoint = torch.load(resume_checkpoint_path, map_location=self.device)
+                
+                # 加载模型权重
+                if 'model_state_dict' in checkpoint:
+                    self.model.load_state_dict(checkpoint['model_state_dict'])
+                else:
+                    self.model.load_state_dict(checkpoint) # 兼容旧版
+
+                # 加载优化器和Scheduler (如果存在)
+                if 'optimizer_state_dict' in checkpoint:
+                    model_optim.load_state_dict(checkpoint['optimizer_state_dict'])
+                if 'scheduler_state_dict' in checkpoint:
+                    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+                
+                # 恢复 Epoch
+                if 'epoch' in checkpoint:
+                    start_epoch = checkpoint['epoch'] + 1
+                    print(f"Resuming from epoch {start_epoch}")
+                
+                # 恢复最佳 Loss (用于 EarlyStopping 判断)
+                if 'best_loss' in checkpoint:
+                    best_vali_loss = checkpoint['best_loss']
+
+        # 初始化 EarlyStopping
+        # 注意：为了保存完整的优化器状态，我们不再完全依赖 EarlyStopping 内部的 save，
+        # 而是利用它的 counter 来判断是否需要保存 best model
+        early_stopping = EarlyStopping(patience=self.args.patience, verbose=True)
+        # 如果是接续训练，需要手动更新 early_stopping 的内部状态
+        if best_vali_loss != float('inf'):
+            early_stopping.best_score = -best_vali_loss # EarlyStopping 内部使用负值作为 score
         
         if self.args.use_amp:
             scaler = torch.cuda.amp.GradScaler()
         
-        for epoch in range(self.args.train_epochs):
-            # ... (epoch 循环内部逻辑保持不变) ...
+        for epoch in range(start_epoch, self.args.train_epochs):
             iter_count = 0
-            train_total_loss = []
-            train_loss_delta = []
+            train_loss = []
             train_loss_absolute = []
-            train_loss_intent = []
-
             
             self.model.train()
             epoch_time = time.time()
-
-            if epoch < 5:
-                self.model.sampling_prob = 1.0  # 前10轮，强制使用真值 COG，教模型“什么样的航向对应哪条路”
-            elif epoch < 10:
-                self.model.sampling_prob = 0.8  # 逐渐引入自身预测
-            else:
-                self.model.sampling_prob = 0.5  # 后期模拟真实推理环境
             
             for i, (batch_x, batch_y, mask_x, mask_y, ship_count, _, A_social, edge_features) in enumerate(train_loader):
                 iter_count += 1
@@ -160,13 +172,12 @@ class Exp_Forecasting(Exp_Basic):
                             mask_y=mask_y
                         )
                         
-                        # [修正] 应当在混合损失上反向传播
-                        back_loss = loss + 0.5 * loss_absolute # (假设 lambda=0.5)
+                        back_loss = 0.5 * loss + loss_absolute 
                         
                         train_loss.append(loss.item())
                         train_loss_absolute.append(loss_absolute.item())
                 else:
-                    pred_deltas, intent_vectors = self.model(
+                    pred = self.model(
                         x_enc=batch_x,
                         y_truth_abs=batch_y[..., :2],
                         mask_x=mask_x,
@@ -175,106 +186,101 @@ class Exp_Forecasting(Exp_Basic):
                         edge_features=edge_features.to(self.device),
                     )
                     
-                    total_loss, loss_delta, loss_abs, loss_intent, w_intent = self.model.loss(
-                        pred_deltas=pred_deltas,
+                    loss, loss_absolute, loss_start = self.model.loss(
+                        pred=pred,
                         y_truth_abs=batch_y,
                         x_enc=batch_x,
-                        mask_y=mask_y,
-                        intent_vectors=intent_vectors,
+                        mask_y=mask_y
                     )
-                    
-                    train_total_loss.append(total_loss.item())
-                    train_loss_delta.append(loss_delta.item())
-                    train_loss_absolute.append(loss_abs.item())
-                    train_loss_intent.append(loss_intent.item())
+                    train_loss.append(loss.item())
+                    train_loss_absolute.append(loss_absolute.item())
                 
                 if (i + 1) % 100 == 0:
-                    
-                    # print(f"\titers: {i + 1}, epoch: {epoch + 1} | loss delta: {loss.item():.7f},  loss absolute: {loss_absolute.item():.7f}, motion loss: {loss_motion.item():.7f} ")
-
-                    print(f"\titers: {i + 1}, epoch: {epoch + 1} | loss total: {total_loss.item():.7f},  loss delta: {loss_delta.item():.7f},  loss absolute: {loss_abs.item():.7f}, intent loss: {loss_intent.item():.7f}")
-                    
-                    # ... (speed, left_time) ...
+                    print(f"\titers: {i + 1}, epoch: {epoch + 1} | loss delta: {loss.item():.7f},  loss absolute: {loss_absolute.item():.7f}")
                 
                 if self.args.use_amp:
-                    scaler.scale(back_loss).backward() # [修正]
+                    scaler.scale(back_loss).backward()
                     scaler.step(model_optim)
                     scaler.update()
                 else:
-                    
-                    # back_loss = loss + 0.5 * loss_absolute + 0.5 * loss_motion # [修正]
-                    back_loss = total_loss # [修正]
+                    back_loss = loss + 0.5 * loss_absolute + 2.0 * loss_start
                     back_loss.backward()
-                    
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                     model_optim.step()
             
-            # ... (Epoch 总结) ...
             print(f"Epoch: {epoch + 1} cost time: {time.time() - epoch_time}")
-            train_total_loss = np.average(train_total_loss)
-            train_loss_delta = np.average(train_loss_delta)
+            train_loss = np.average(train_loss)
             train_loss_absolute = np.average(train_loss_absolute)
-            train_loss_intent = np.average(train_loss_intent)
-
             
-            # [修正] vali_loss 现在是 absolute loss
-            # vali_loss, vali_loss_absolute, vali_loss_motion = self.vali(vali_loader)
-            # test_loss, test_loss_absolute, test_loss_motion = self.vali(test_loader) # (假设 test 也用 vali 逻辑)
+            vali_loss, vali_loss_absolute = self.vali(vali_loader)
+            test_loss, test_loss_absolute = self.vali(test_loader)
 
-            # [修正] vali_loss 现在是 absolute loss
-            vali_loss, vali_loss_delta, vali_loss_absolute, vali_loss_intent = self.vali(vali_loader)
-            test_loss, test_loss_delta, test_loss_absolute, test_loss_intent = self.vali(test_loader) # (假设 test 也用 vali 逻辑)
+            print(f"Epoch: {epoch + 1}, Steps: {train_steps} | Train Loss: {train_loss:.7f}, {train_loss_absolute:.7f}, Vali Loss: {vali_loss:.7f}, {vali_loss_absolute:.7f} Test Loss: {test_loss:.7f}, {test_loss_absolute:.7f}")
             
+            # [修改] 学习率调整策略 Update Scheduler
+            # 注意：ReduceLROnPlateau 需要传入当前的 validation metric
+            scheduler.step(vali_loss_absolute)
 
-            # print(f"Epoch: {epoch + 1}, Steps: {train_steps} | Train Loss: {train_loss:.7f}, {train_loss_absolute:.7f}, {train_loss_motion:.7f} Vali Loss: {vali_loss:.7f}, {vali_loss_absolute:.7f}, {vali_loss_motion:.7f} Test Loss: {test_loss:.7f}, {test_loss_absolute:.7f}, {test_loss_motion:.7f}")
+            # [新增] 构造包含所有信息的 Checkpoint 字典
+            checkpoint_dict = {
+                'epoch': epoch,
+                'model_state_dict': self.model.state_dict(),
+                'optimizer_state_dict': model_optim.state_dict(),
+                'scheduler_state_dict': scheduler.state_dict(),
+                'best_loss': early_stopping.best_score if early_stopping.best_score != -np.Inf else -vali_loss_absolute,
+                'args': self.args
+            }
 
-            print(f"Epoch: {epoch + 1}, Steps: {train_steps} | Train total Loss: {train_total_loss:.7f}, Train delta loss {train_loss_delta:.7f}, Train abs loss {train_loss_absolute:.7f}, Train intent loss {train_loss_intent:.7f}")
-            print(f"                                           Vali total Loss: {vali_loss:.7f}, Vali delta loss {vali_loss_delta:.7f}, Vali abs loss {vali_loss_absolute:.7f}, Vali intent loss {vali_loss_intent:.7f}")
-            print(f"                                           Test total Loss: {test_loss:.7f}, Test delta loss {test_loss_delta:.7f}, Test abs loss {test_loss_absolute:.7f}, Test intent loss {test_loss_intent:.7f}")
-            # early_stopping 监控的是 vali_loss_absolute
+            # [修改] Early Stopping 与 模型保存逻辑
+            # 调用 early_stopping 计算 counter
             early_stopping(vali_loss_absolute, self.model, ckpt_path)
+            
+            # 如果当前是最佳模型 (counter 为 0)，覆盖保存完整的 checkpoint
+            # 注意：EarlyStopping 内部可能已经保存了一个只包含 state_dict 的文件，
+            # 我们这里将其覆盖为包含优化器的完整 checkpoint
+            if early_stopping.counter == 0:
+                print(f"Saving full checkpoint with optimizer to {os.path.join(ckpt_path, 'checkpoint.pth')}")
+                torch.save(checkpoint_dict, os.path.join(ckpt_path, 'checkpoint.pth'))
+            
+            # 可选：每个 epoch 结束都保存一个 latest checkpoint，方便随时断点续传（即使不是最优模型）
+            torch.save(checkpoint_dict, os.path.join(ckpt_path, 'checkpoint_latest.pth'))
+
             if early_stopping.early_stop:
                 print("Early stopping")
                 break
             
-            adjust_learning_rate(model_optim, epoch + 1, self.args)
-        
-        # [修改] 加载最佳模型 (从 "run" 路径加载)
+        # 加载最佳模型进行返回
         best_model_path = os.path.join(ckpt_path, 'checkpoint.pth')
-        self.model.load_state_dict(torch.load(best_model_path))
+        # [修改] 加载时处理字典结构
+        checkpoint = torch.load(best_model_path)
+        if 'model_state_dict' in checkpoint:
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+        else:
+            self.model.load_state_dict(checkpoint)
         
         return self.model
 
     def test(self, setting, test=0):
-        """
-        测试模型
-        [已修改] "setting" 现在是 "Experiment/Run" 路径
-        """
         test_data, test_loader = self._get_data(flag='test')
         
-        # [修改] 结果路径 (保存到 ./results/...)
-
         results_path = os.path.join(setting, 'results')
         if not os.path.exists(results_path):
             os.makedirs(results_path, exist_ok=True)
+            
         if test:
             print('loading model')
-            # [修改] 检查点路径 (加载从 ./checkpoints/...)
             checkpoint_path = os.path.join(setting, 'checkpoints', 'checkpoint.pth')
-            checkpoint = torch.load(checkpoint_path) # 或者是 .pt
+            # [修改] 兼容加载完整 Checkpoint 字典
+            checkpoint = torch.load(checkpoint_path, map_location=self.device)
+            if 'model_state_dict' in checkpoint:
+                self.model.load_state_dict(checkpoint['model_state_dict'])
+            else:
+                self.model.load_state_dict(checkpoint)
 
-            # 2. 从中取出模型的参数部分 (根据你的报错，键名是 'model_state_dict')
-            # 注意：这里我们只取 model_state_dict
-            state_dict = checkpoint['model_state_dict']
-
-            # 3. 将取出的参数加载到模型中
-            self.model.load_state_dict(state_dict, weights_only=True)
         hists = []
         preds = []
         trues = []
         masks_list = []
-        
-        # [移除了 'folder_path' 的旧定义]
         
         self.model.eval()
         with torch.no_grad():
@@ -282,18 +288,14 @@ class Exp_Forecasting(Exp_Basic):
                 batch_x = batch_x.float().to(self.device)
                 batch_y = batch_y.float().to(self.device)
 
-                # [修改] 确保 mask 和 y_truth_abs=None 被传递
                 outputs = self.model(
-                    x_enc=batch_x,
-                    y_truth_abs=None, # 触发推理
-                    mask_x=mask_x.to(self.device),
+                    x_enc=batch_x, 
+                    y_truth_abs=None,
+                    mask_x=mask_x.to(self.device), 
                     mask_y=mask_y.to(self.device),
                     A_social_t=A_social.to(self.device),
                     edge_features=edge_features.to(self.device),
-
                 )
-                
-                # outputs_absolute = self.model.integrate(outputs_deltas, batch_x)
                 
                 hists.append(batch_x[..., :2].detach().cpu().numpy())
                 preds.append(outputs.detach().cpu().numpy())
@@ -305,9 +307,6 @@ class Exp_Forecasting(Exp_Basic):
         scaler_params = np.load(scaler_file, allow_pickle=True).item()
         mean, std = scaler_params['mean'], scaler_params['std']
 
-
-
-        # ... (拼接 preds, trues, masks 不变) ...
         hists = np.concatenate(hists, axis=0)
         preds = np.concatenate(preds, axis=0)
         trues = np.concatenate(trues, axis=0)
@@ -317,16 +316,12 @@ class Exp_Forecasting(Exp_Basic):
         print('preds shape:', preds.shape)
         print('trues shape:', trues.shape)
 
-        # 反标准化
         hists_invers = hists * std[:2] + mean[:2]
         preds_invers = preds * std[:2] + mean[:2]
         trues_invers = trues * std[:2] + mean[:2]
         
         print('test shape:', preds.shape, trues.shape, masks.shape)
         
-        # [移除了 'folder_path' 的旧定义]
-
-        # ... (计算 ADE, FDE, metric 不变) ...
         ade = ADE(preds, trues, mask=masks)
         fde = FDE(preds, trues, mask=masks)
         mae, mse, rmse, mape, mspe = metric(preds, trues, mask=masks)
@@ -335,7 +330,6 @@ class Exp_Forecasting(Exp_Basic):
         print(f'mse:{mse:.4f}, mae:{mae:.4f}, rmse:{rmse:.4f}, mape:{mape:.4f}, mspe:{mspe:.4f}')
         print(f'ADE:{ade:.4f}, FDE:{fde:.4f}')
         
-        # [修改] 保存结果到新的 "results_path"
         with open(os.path.join(results_path, 'result.txt'), 'w') as f:
             f.write(setting + '\n')
             f.write(f'ADE: {ade:.4f}, FDE: {fde:.4f}\n')
@@ -350,25 +344,23 @@ class Exp_Forecasting(Exp_Basic):
         np.save(os.path.join(results_path, 'pred_inverse.npy'), preds_invers)
         np.save(os.path.join(results_path, 'true_inverse.npy'), trues_invers)
         
-        
         return
 
     def predict(self, setting, load=False):
-        """
-        预测（用于实际部署）
-        [已修改] "setting" 现在是 "Experiment/Run" 路径
-        """
         pred_data, pred_loader = self._get_data(flag='test')
         
-        # [修改] 结果路径 (保存到 ./results/...)
         results_path = os.path.join('./results/', setting)
         if not os.path.exists(results_path):
             os.makedirs(results_path, exist_ok=True)
             
         if load:
-            # [修改] 检查点路径 (加载从 ./checkpoints/...)
             checkpoint_path = os.path.join(self.args.checkpoints, setting, 'checkpoint.pth')
-            self.model.load_state_dict(torch.load(checkpoint_path))
+            # [修改] 兼容加载完整 Checkpoint 字典
+            checkpoint = torch.load(checkpoint_path, map_location=self.device)
+            if 'model_state_dict' in checkpoint:
+                self.model.load_state_dict(checkpoint['model_state_dict'])
+            else:
+                self.model.load_state_dict(checkpoint)
         
         preds = []
         
@@ -377,24 +369,16 @@ class Exp_Forecasting(Exp_Basic):
             for i,(batch_x, batch_y, mask_x, mask_y, ship_count, _) in enumerate(pred_loader):
                 batch_x = batch_x.float().to(self.device)
                 
-                # [修改] 确保 mask 和 y_truth_abs=None 被传递
-                outputs_deltas = self.model(
-                    x_enc=batch_x,
+                outputs = self.model(
+                    x_enc=batch_x, 
                     y_truth_abs=None,
-                    mask_x=mask_x.to(self.device),
+                    mask_x=mask_x.to(self.device), 
                     mask_y=mask_y.to(self.device)
                 )
                 
-                # [修改] 将增量重建为绝对坐标
-                outputs_absolute = self.model.integrate(outputs_deltas[..., :2], batch_x)
-                
-                preds.append(outputs_absolute.detach().cpu().numpy())
+                preds.append(outputs.detach().cpu().numpy())
         
         preds = np.concatenate(preds, axis=0)
-        
-        # [移除了 'folder_path' 的旧定义]
-        
-        # [修改] 保存预测结果到 "results_path"
         np.save(os.path.join(results_path, 'real_prediction.npy'), preds)
         
         return preds

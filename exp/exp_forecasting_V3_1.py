@@ -103,7 +103,7 @@ class Exp_Forecasting(Exp_Basic):
                     edge_features=edge_features.to(self.device),
                 ) 
                 
-                loss, loss_absolute = self.model.loss(
+                loss, loss_absolute, _ = self.model.loss(
                     pred=outputs,
                     y_truth_abs=batch_y,
                     x_enc=batch_x,
@@ -178,7 +178,7 @@ class Exp_Forecasting(Exp_Basic):
                             mask_y=mask_y,
                             A_social_t=A_social.to(self.device)
                         )
-                        loss, loss_absolute = self.model.loss(
+                        loss, loss_absolute, loss_start = self.model.loss(
                             pred_deltas=pred_deltas,
                             y_truth_abs=batch_y,
                             x_enc=batch_x,
@@ -186,7 +186,7 @@ class Exp_Forecasting(Exp_Basic):
                         )
                         
                         # [修正] 应当在混合损失上反向传播
-                        back_loss = 0.5 *  loss + loss_absolute # (假设 lambda=0.5)
+                        back_loss = loss + 0.5 * loss_absolute + 2 * loss_start # (假设 lambda=0.5, start loss 权重=0.1)
                         
                         train_loss.append(loss.item())
                         train_loss_absolute.append(loss_absolute.item())
@@ -200,7 +200,7 @@ class Exp_Forecasting(Exp_Basic):
                         edge_features=edge_features.to(self.device),
                     )
                     
-                    loss, loss_absolute = self.model.loss(
+                    loss, loss_absolute, loss_start = self.model.loss(
                         pred=pred,
                         y_truth_abs=batch_y,
                         x_enc=batch_x,
@@ -221,7 +221,7 @@ class Exp_Forecasting(Exp_Basic):
                     scaler.step(model_optim)
                     scaler.update()
                 else:
-                    back_loss = 0.5 * loss +  loss_absolute 
+                    back_loss = loss + 0.5 * loss_absolute + 2 * loss_start
                     back_loss.backward()
                     
                     torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
@@ -291,7 +291,7 @@ class Exp_Forecasting(Exp_Basic):
                 batch_y = batch_y.float().to(self.device)
 
                 # [修改] 确保 mask 和 y_truth_abs=None 被传递
-                outputs_deltas = self.model(
+                outputs = self.model(
                     x_enc=batch_x,
                     y_truth_abs=None, # 触发推理
                     mask_x=mask_x.to(self.device),
@@ -301,10 +301,10 @@ class Exp_Forecasting(Exp_Basic):
 
                 )
                 
-                outputs_absolute = self.model.integrate(outputs_deltas, batch_x)
+                # outputs_absolute = self.model.integrate(outputs_deltas, batch_x)
                 
                 hists.append(batch_x[..., :2].detach().cpu().numpy())
-                preds.append(outputs_absolute.detach().cpu().numpy())
+                preds.append(outputs.detach().cpu().numpy())
                 trues.append(batch_y[..., :2].detach().cpu().numpy())
                 masks_list.append(mask_y.detach().cpu().numpy())
         
@@ -386,7 +386,7 @@ class Exp_Forecasting(Exp_Basic):
                 batch_x = batch_x.float().to(self.device)
                 
                 # [修改] 确保 mask 和 y_truth_abs=None 被传递
-                outputs_deltas = self.model(
+                outputs = self.model(
                     x_enc=batch_x,
                     y_truth_abs=None,
                     mask_x=mask_x.to(self.device),
@@ -394,9 +394,9 @@ class Exp_Forecasting(Exp_Basic):
                 )
                 
                 # [修改] 将增量重建为绝对坐标
-                outputs_absolute = self.model.integrate(outputs_deltas[..., :2], batch_x)
+                # outputs_absolute = self.model.integrate(outputs_deltas[..., :2], batch_x)
                 
-                preds.append(outputs_absolute.detach().cpu().numpy())
+                preds.append(outputs.detach().cpu().numpy())
         
         preds = np.concatenate(preds, axis=0)
         

@@ -706,7 +706,8 @@ class Model(nn.Module):
 
         # 1. 计算 "绝对损失" (Loss_Abs)
         #    现在 pred_absolute 直接就是模型输出，无需积分
-        loss_absolute = self.criterion(
+        F_abs_loss = get_loss_function('mae')
+        loss_absolute = F_abs_loss(
             pred[mask_y_bool],
             y_truth_abs[mask_y_bool]
         )
@@ -723,19 +724,24 @@ class Model(nn.Module):
             y_truth_deltas[mask_y_bool]
         )
         
-        back_loss = loss_delta + 0.1 * loss_absolute 
+        loss_abs_MSE = get_loss_function('mse')(
+            pred[mask_y_bool],
+            y_truth_abs[mask_y_bool]
+        )
+
+        back_loss = 0.1 * loss_delta + loss_absolute 
 
         
         # 返回 total 用于反向传播，返回 absolute 用于显示指标
         if (iter is not None and epoch is not None) and (iter + 1) % 100 == 0:
-            print(f"\titers: {iter + 1}, epoch: {epoch + 1} |  Loss_Delta: {loss_delta.item():.7f}, Loss_Abs: {loss_absolute.item():.7f}")
+            print(f"\titers: {iter + 1}, epoch: {epoch + 1} |  Loss_Delta: {loss_delta.item():.7f}, Loss_Abs: {loss_absolute.item():.7f}, Loss_Abs_MSE: {loss_abs_MSE.item():.7f}")
 
         # 3. 总 Loss 组合 (保持你的逻辑: delta + 0.5 * abs)
         # 注意：这里你可以根据效果调整权重，比如绝对坐标更重要可以加大 abs 的权重
         # loss_total = loss_delta + 0.5 * loss_absolute
         
         # 返回 total 用于反向传播，返回 absolute 用于显示指标
-        return back_loss, loss_absolute
+        return back_loss, loss_abs_MSE
 
     def integrate(self, pred_deltas, x_enc_history):
         """

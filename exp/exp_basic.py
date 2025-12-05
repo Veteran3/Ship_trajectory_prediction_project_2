@@ -2,7 +2,8 @@ import os
 import torch
 # from models import Transformer_V1_0, Transformer_V1_1
 from torch.utils.data import DataLoader
-from models import  V3_0_0_ASTGNN, V3_1_0_ASTGNN, V3_1_0_1_ASTGNN
+from models import  V3_0_0_ASTGNN, V3_1_0_ASTGNN, V3_1_0_1_ASTGNN, V3_1_0_2_ASTGNN, V3_1_0_3_ASTGNN, V3_1_0_4_ASTGNN,\
+                    V4_0_0_ASTGNN, V4_0_1_ASTGNN
 
 
 class Exp_Basic(object):
@@ -13,7 +14,11 @@ class Exp_Basic(object):
             'V3_0_0_ASTGNN': V3_0_0_ASTGNN,
             'V3_1_0_ASTGNN': V3_1_0_ASTGNN,
             'V3_1_0_1_ASTGNN': V3_1_0_1_ASTGNN,
-
+            'V3_1_0_2_ASTGNN': V3_1_0_2_ASTGNN,
+            'V3_1_0_3_ASTGNN': V3_1_0_3_ASTGNN,
+            'V3_1_0_4_ASTGNN': V3_1_0_4_ASTGNN,
+            'V4_0_0_ASTGNN': V4_0_0_ASTGNN,
+            'V4_0_1_ASTGNN': V4_0_1_ASTGNN,
         }
        
 
@@ -41,12 +46,12 @@ class Exp_Basic(object):
     def _get_data(self, flag):
         # ... (此方法保持不变) ...
         args = self.args
+        from data_provider.data_loader_5_0 import ShipTrajectoryDataset
+        # if  args.model in ['V3_0_0_ASTGNN', 'V3_1_0_ASTGNN', 'V3_1_1_ASTGNN', 'V3_1_2_ASTGNN', 'V3_1_0_1_ASTGNN', 'V3_1_0_2_ASTGNN', 'V3_1_0_3_ASTGNN']:
+        #     from data_provider.data_loader_5_0 import ShipTrajectoryDataset
 
-        if  args.model in ['V3_0_0_ASTGNN', 'V3_1_0_ASTGNN', 'V3_1_1_ASTGNN', 'V3_1_2_ASTGNN', 'V3_1_0_1_ASTGNN']:
-            from data_provider.data_loader_5_0 import ShipTrajectoryDataset
-
-        else:
-            raise ValueError('Please select the correct data_loader version for the model!')
+        # else:
+        #     raise ValueError('Please select the correct data_loader version for the model!')
         data_dict = {
             'train': (args.train_data_path, True),
             'val': (args.val_data_path, True),

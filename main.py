@@ -3,12 +3,12 @@ import os
 import torch
 import random
 import numpy as np
-from exp.exp_forecasting_V3_1 import Exp_Forecasting
+from exp.exp_forecasting_VV1 import Exp_Forecasting
 import time
 import json
 import shutil     # [新] 用于删除文件夹
 import traceback  # [新] 用于打印报错信息
-
+from utils.config_loader import get_args_from_yaml # 假设你把上面的代码存为了 utils/config_loader.py
 import sys
 import os
 # ... (其他 import)
@@ -50,9 +50,8 @@ def get_args(data):
     experiment_desc = """
     
 ## 实验目的：
-v3.1.0.1
-
-Loss = loss_delta * 0.5  + loss_absolute 
+v3.1.0.3
+修改损失函数，使用 Huber Loss 作为绝对坐标损失函数，以提升模型对异常值的鲁棒性。
 
 """
     # ==================== 基本配置 ====================
@@ -62,12 +61,13 @@ Loss = loss_delta * 0.5  + loss_absolute
                         help='status: 1 for training, 0 for testing')
     parser.add_argument('--model_id', type=str, default='ship_traj',
                         help='model id')
-    parser.add_argument('--model', type=str, default='V3_1_0_ASTGNN',
+    parser.add_argument('--model', type=str, default='V3_1_0_3_ASTGNN',
                         help='model name')
     
     # ==================== 数据配置 ====================
     parser.add_argument('--root_path', type=str, default=f'./data/{data}/',
                         help='root path of the data file')
+    
     parser.add_argument('--train_data_path', type=str, default='train.npz',
                         help='train data file')
     parser.add_argument('--val_data_path', type=str, default='val.npz',
@@ -129,7 +129,7 @@ Loss = loss_delta * 0.5  + loss_absolute
                         help='loss function')
     parser.add_argument('--train_epochs', type=int, default=100,
                         help='number of training epochs')
-    parser.add_argument('--patience', type=int, default=10,
+    parser.add_argument('--patience', type=int, default=30,
                         help='early stopping patience')
     parser.add_argument('--lradj', type=str, default='type1',
                         choices=['type1', 'type2', 'cosine'],
@@ -195,8 +195,16 @@ def main():
     timestamp = time.strftime('%Y%m%d%H%M%S', time.localtime())
     
     # 获取参数
-    args, experiment_desc = get_args(data)
+    args = get_args_from_yaml(r'./configs/config.yaml')
+    experiment_desc = """
     
+## 实验目的：
+v4.0.1
+Encoder only
+直接预测经纬度
+
+
+"""
     # 设置随机种子
     set_seed(args.seed)
     

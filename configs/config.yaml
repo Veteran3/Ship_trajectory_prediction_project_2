@@ -1,0 +1,67 @@
+# ==================== 基本配置 ====================
+task_name: 'ship_trajectory_forecast'
+is_training: 1                      # 1 for training, 0 for testing
+model_id: 'ship_traj'
+model: 'V4_0_0_ASTGNN'
+
+# ==================== 数据配置 ====================
+data: '30s_20_30'                         # 用于构建 root_path
+# root_path: './data/30s/'          # 代码中会根据 data 自动构建，这里可以保留默认或覆盖
+train_data_path: 'train.npz'
+val_data_path: 'val.npz'
+test_data_path: 'test.npz'
+checkpoints: './checkpoints/'
+lane_table_path: '/mnt/stu/ZhangDong/2_PhD_projects/0_0_My_model/data/lane_table_with_next_lane.csv'
+
+# ==================== 数据预处理 ====================
+seq_len: 20
+pred_len: 30
+num_ships: 13
+num_features: 4                     # lon, lat, cog, sog
+scale: 1                            # 1 for True, 0 for False
+scale_type: 'standard'              # choices: ['standard', 'minmax']
+predict_position_only: 1            # 1: only predict pos, ignore COG/SOG
+
+# ==================== 模型配置 ====================
+in_feature: 7
+d_model: 64
+n_heads: 8
+e_layers: 1
+d_layers: 1
+d_ff: 256
+factor: 5
+dropout: 0.1
+activation: 'gelu'                  # choices: ['relu', 'gelu']
+output_attention: 0
+
+# ==================== 训练配置 ====================
+batch_size: 32
+learning_rate: 0.0002
+loss: 'mse'                         # choices: ['mse', 'mae', 'huber']
+train_epochs: 100
+patience: 100
+lradj: 'type1'                      # choices: ['type1', 'type2', 'cosine']
+
+# ==================== GPU配置 ====================
+use_gpu: 1
+gpu_type: 'cuda'                    # choices: ['cuda', 'mps']
+gpu: 0                              # default gpu id
+use_multi_gpu: 0
+devices: '0,1,2,3'
+
+# ==================== 其他配置 ====================
+num_workers: 4
+use_amp: 0                          # automatic mixed precision
+seed: 2024
+des: 'Exp'                          # experiment description
+
+# ==================== 采样概率配置 ====================
+ANNEAL_START_EPOCH: 1
+ANNEAL_END_EPOCH: 50
+PROB_START: 1.0
+PROB_END: 0.2
+
+# ==================== 语义影响力配置 ====================
+social_sigma: 1.0
+tcpa_thresh: 300.0
+dcpa_thresh: 1000.0
