@@ -3,7 +3,8 @@ import torch
 # from models import Transformer_V1_0, Transformer_V1_1
 from torch.utils.data import DataLoader
 from models import  V3_0_0_ASTGNN, V3_1_0_ASTGNN, V3_1_0_1_ASTGNN, V3_1_0_2_ASTGNN, V3_1_0_3_ASTGNN, V3_1_0_4_ASTGNN,\
-                    V4_0_0_ASTGNN, V4_0_1_ASTGNN
+                    V4_0_0_ASTGNN, V4_0_1_ASTGNN, \
+                    V5_0_0_ASTGNN, V5_0_1_ASTGNN
 
 
 class Exp_Basic(object):
@@ -19,6 +20,8 @@ class Exp_Basic(object):
             'V3_1_0_4_ASTGNN': V3_1_0_4_ASTGNN,
             'V4_0_0_ASTGNN': V4_0_0_ASTGNN,
             'V4_0_1_ASTGNN': V4_0_1_ASTGNN,
+            'V5_0_0_ASTGNN': V5_0_0_ASTGNN,
+            'V5_0_1_ASTGNN': V5_0_1_ASTGNN,
         }
        
 

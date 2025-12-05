@@ -28,7 +28,7 @@ def main():
                         help='model name')
     
     # ==================== 数据配置 ====================
-    parser.add_argument('--root_path', type=str, default='./data/30s_20_30',
+    parser.add_argument('--root_path', type=str, default='./data/30s',
                         help='root path of the data file')
     parser.add_argument('--train_data_path', type=str, default='train.npz',
                         help='train data file')
@@ -43,11 +43,11 @@ def main():
                         help='path to the lane table file')
     
     # ==================== 数据预处理 ====================
-    parser.add_argument('--seq_len', type=int, default=20,
+    parser.add_argument('--seq_len', type=int, default=8,
                         help='input sequence length')
-    parser.add_argument('--pred_len', type=int, default=30,
+    parser.add_argument('--pred_len', type=int, default=12,
                         help='prediction sequence length')
-    parser.add_argument('--num_ships', type=int, default=13,
+    parser.add_argument('--num_ships', type=int, default=17,
                         help='number of ships per frame')
     parser.add_argument('--num_features', type=int, default=4,
                         help='number of features (lon, lat, cog, sog)')
@@ -159,8 +159,8 @@ if __name__ == '__main__':
     main()
     """
     python test.py \
-    --model V4_0_0_ASTGNN \
-    --setting "/mnt/stu/ZhangDong/2_PhD_projects/0_1_My_model/experiments/ship_traj_V4_0_0_ASTGNN_sl20_pl30_dm64_nh8_el1_dl1_df256_Exp_30s/run_seed2024_20251204050328" \
+    --model V5_0_1_ASTGNN \
+    --setting "/mnt/stu/ZhangDong/2_PhD_projects/0_1_My_model/experiments/ship_traj_V5_0_1_ASTGNN_sl8_pl12_dm64_nh8_el1_dl1_df256_Exp_30s/run_seed2024_20251205053341" \
     --seq_len 8 \
     --pred_len 12 \
     --d_model 64 \

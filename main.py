@@ -199,9 +199,8 @@ def main():
     experiment_desc = """
     
 ## 实验目的：
-v4.0.1
-Encoder only
-直接预测经纬度
+v5.0.0
+将时间趋势感知注意力，更改为动力学趋势注意力    KinematicsTrendAttention
 
 
 """
